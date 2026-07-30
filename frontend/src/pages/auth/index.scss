@@ -1,0 +1,64 @@
+.auth-page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 180rpx 64rpx 72rpx;
+  background: #f7f8fa;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+
+  &__content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  &__logo {
+    width: 144rpx;
+    height: 144rpx;
+    border-radius: 36rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #1e6fff;
+    color: #fff;
+    font-size: 64rpx;
+    font-weight: 700;
+    box-shadow: 0 16rpx 32rpx rgba(30, 111, 255, 0.2);
+  }
+
+  &__title {
+    margin-top: 44rpx;
+    color: #1f2937;
+    font-size: 48rpx;
+    font-weight: 700;
+  }
+
+  &__subtitle {
+    margin-top: 18rpx;
+    color: #8a94a6;
+    font-size: 28rpx;
+  }
+
+  &__login {
+    width: 100%;
+    height: 96rpx;
+    line-height: 96rpx;
+    border: 0;
+    border-radius: 48rpx;
+    background: #1e6fff;
+    color: #fff;
+    font-size: 32rpx;
+    font-weight: 600;
+
+    &::after { border: 0; }
+  }
+
+  &__agreement {
+    display: block;
+    margin-top: 28rpx;
+    color: #a0a7b4;
+    font-size: 22rpx;
+    text-align: center;
+  }
+}

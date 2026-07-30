@@ -1,0 +1,22 @@
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 100px 20px;
+  color: #94a3b8;
+  &__icon {
+    font-size: 88px;
+    color: #cbd5e1;
+  }
+  &__text {
+    font-size: 28px;
+  }
+  &__button {
+    margin-top: 24rpx;
+    border-radius: 12rpx;
+    background: #1f7a4d;
+    color: #fff;
+    font-size: 26rpx;
+  }
+}

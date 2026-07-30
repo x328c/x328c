@@ -1,0 +1,42 @@
+.confirm {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  &__mask {
+    position: absolute;
+    inset: 0;
+    background: rgb(0 0 0 / 45%);
+  }
+  &__panel {
+    position: relative;
+    width: 560px;
+    padding: 36px;
+    background: #fff;
+    border-radius: 24px;
+  }
+  &__title {
+    display: block;
+    font-size: 34px;
+    font-weight: 600;
+  }
+  &__content {
+    display: block;
+    margin-top: 20px;
+    color: #64748b;
+    font-size: 28px;
+  }
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 50px;
+    margin-top: 36px;
+    font-size: 30px;
+  }
+  &__primary {
+    color: #1f7a4d;
+    font-weight: 600;
+  }
+}

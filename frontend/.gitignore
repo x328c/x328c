@@ -1,0 +1,15 @@
+dist/
+deploy_versions/
+.temp/
+.rn_temp/
+node_modules/
+.DS_Store
+.swc
+*.local
+
+# 测试和生产环境配置只保留在部署机器，不提交到仓库。
+.env.test
+.env.production
+
+# 本地开发配置不含敏感信息，可以提交。
+!.env.development

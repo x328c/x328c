@@ -1,0 +1,273 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 BigInt                 @id @default(autoincrement())
+  openid             String                 @unique @db.VarChar(64)
+  unionid            String?                @db.VarChar(64)
+  nickname           String                 @db.VarChar(50)
+  avatar_url         String?                @db.VarChar(255)
+  gender             Int                    @default(0) @db.TinyInt
+  phone              String?                @unique @db.VarChar(20)
+  status             Int                    @default(1) @db.TinyInt
+  role               Int                    @default(0) @db.TinyInt
+  last_login_at      DateTime?              @db.DateTime(0)
+  created_at         DateTime               @default(now()) @db.DateTime(0)
+  updated_at         DateTime               @updatedAt @db.DateTime(0)
+  deleted_at         DateTime?              @db.DateTime(0)
+  profile            UserProfile?
+  rides              Ride[]
+  ride_entries       RideParticipant[]
+  activities         Activity[]
+  registrations      ActivityRegistration[]
+  notifications      Notification[]         @relation("notification_recipient")
+  sent_notifications Notification[]         @relation("notification_sender")
+  filed_reports      Report[]               @relation("reporter")
+  received_reports   Report[]               @relation("reported_user")
+  file_records       FileRecord[]
+
+  @@index([unionid])
+  @@index([status])
+  @@map("users")
+}
+
+model UserProfile {
+  id                   BigInt    @id @default(autoincrement())
+  user_id              BigInt    @unique
+  motorcycle_model     String?   @db.VarChar(100)
+  riding_years         Int?      @db.TinyInt
+  riding_styles        Json?
+  province             String?   @db.VarChar(50)
+  city                 String?   @db.VarChar(50)
+  district             String?   @db.VarChar(50)
+  city_code            String?   @db.VarChar(20)
+  location_lat         Decimal?  @db.Decimal(10, 7)
+  location_lng         Decimal?  @db.Decimal(10, 7)
+  location_offset_seed String?   @db.VarChar(32)
+  location_visible     Int       @default(2) @db.TinyInt
+  bio                  String?   @db.VarChar(200)
+  wechat_id            String?   @db.VarChar(50)
+  wechat_visible       Int       @default(1) @db.TinyInt
+  created_at           DateTime  @default(now()) @db.DateTime(0)
+  updated_at           DateTime  @updatedAt @db.DateTime(0)
+  deleted_at           DateTime? @db.DateTime(0)
+  user                 User      @relation(fields: [user_id], references: [id])
+
+  @@index([city_code])
+  @@map("user_profiles")
+}
+
+model Ride {
+  id               BigInt            @id @default(autoincrement())
+  user_id          BigInt
+  title            String            @db.VarChar(50)
+  ride_style       Int               @db.TinyInt
+  departure_time   DateTime          @db.DateTime(0)
+  meetup_address   String            @db.VarChar(200)
+  meetup_lat       Decimal           @db.Decimal(10, 7)
+  meetup_lng       Decimal           @db.Decimal(10, 7)
+  destination      String?           @db.VarChar(200)
+  min_people       Int               @db.TinyInt
+  max_people       Int               @db.TinyInt
+  speed_level      Int               @db.TinyInt
+  bike_requirement String?           @db.VarChar(100)
+  description      String?           @db.Text
+  rules            Json?
+  status           Int               @default(1) @db.TinyInt
+  audit_status     Int               @default(1) @db.TinyInt
+  view_count       Int               @default(0)
+  join_count       Int               @default(0)
+  city_code        String            @db.VarChar(20)
+  created_at       DateTime          @default(now()) @db.DateTime(0)
+  updated_at       DateTime          @updatedAt @db.DateTime(0)
+  deleted_at       DateTime?         @db.DateTime(0)
+  user             User              @relation(fields: [user_id], references: [id])
+  participants     RideParticipant[]
+  reports          Report[]          @relation("reported_ride")
+
+  @@index([user_id])
+  @@index([departure_time])
+  @@index([city_code, status, departure_time])
+  @@map("rides")
+}
+
+model RideParticipant {
+  id           BigInt    @id @default(autoincrement())
+  ride_id      BigInt
+  user_id      BigInt
+  status       Int       @default(1) @db.TinyInt
+  is_creator   Boolean   @default(false)
+  joined_at    DateTime  @default(now()) @db.DateTime(0)
+  cancelled_at DateTime? @db.DateTime(0)
+  created_at   DateTime  @default(now()) @db.DateTime(0)
+  updated_at   DateTime  @updatedAt @db.DateTime(0)
+  deleted_at   DateTime? @db.DateTime(0)
+  ride         Ride      @relation(fields: [ride_id], references: [id])
+  user         User      @relation(fields: [user_id], references: [id])
+
+  @@unique([ride_id, user_id])
+  @@index([ride_id, status])
+  @@index([user_id, status])
+  @@map("ride_participants")
+}
+
+model Activity {
+  id                BigInt                 @id @default(autoincrement())
+  user_id           BigInt
+  title             String                 @db.VarChar(80)
+  cover_image       String?                @db.VarChar(255)
+  activity_type     Int                    @db.TinyInt
+  start_time        DateTime               @db.DateTime(0)
+  end_time          DateTime               @db.DateTime(0)
+  meetup_address    String                 @db.VarChar(200)
+  meetup_lat        Decimal                @db.Decimal(10, 7)
+  meetup_lng        Decimal                @db.Decimal(10, 7)
+  route_description String?                @db.Text
+  max_people        Int                    @default(0)
+  fee_type          Int                    @db.TinyInt
+  fee_amount        Decimal?               @db.Decimal(10, 2)
+  requirements      String?                @db.Text
+  content           String?                @db.Text
+  contact_name      String?                @db.VarChar(50)
+  contact_wechat    String?                @db.VarChar(50)
+  need_approval     Boolean                @default(false)
+  status            Int                    @default(1) @db.TinyInt
+  view_count        Int                    @default(0)
+  like_count        Int                    @default(0)
+  favorite_count    Int                    @default(0)
+  register_count    Int                    @default(0)
+  city_code         String                 @db.VarChar(20)
+  created_at        DateTime               @default(now()) @db.DateTime(0)
+  updated_at        DateTime               @updatedAt @db.DateTime(0)
+  deleted_at        DateTime?              @db.DateTime(0)
+  user              User                   @relation(fields: [user_id], references: [id])
+  registrations     ActivityRegistration[]
+  reports           Report[]               @relation("reported_activity")
+
+  @@index([user_id])
+  @@index([city_code, status, start_time])
+  @@map("activities")
+}
+
+model ActivityRegistration {
+  id                BigInt    @id @default(autoincrement())
+  activity_id       BigInt
+  user_id           BigInt
+  real_name         String?   @db.VarChar(50)
+  phone             String?   @db.VarChar(50)
+  emergency_contact String?   @db.VarChar(50)
+  remark            String?   @db.VarChar(200)
+  status            Int       @default(1) @db.TinyInt
+  reject_reason     String?   @db.VarChar(200)
+  registered_at     DateTime  @default(now()) @db.DateTime(0)
+  audited_at        DateTime? @db.DateTime(0)
+  created_at        DateTime  @default(now()) @db.DateTime(0)
+  updated_at        DateTime  @updatedAt @db.DateTime(0)
+  deleted_at        DateTime? @db.DateTime(0)
+  activity          Activity  @relation(fields: [activity_id], references: [id])
+  user              User      @relation(fields: [user_id], references: [id])
+
+  @@unique([activity_id, user_id])
+  @@index([activity_id, status])
+  @@index([user_id, status])
+  @@map("activity_registrations")
+}
+
+model Notification {
+  id           BigInt    @id @default(autoincrement())
+  user_id      BigInt
+  type         Int       @db.TinyInt
+  title        String    @db.VarChar(100)
+  content      String    @db.VarChar(500)
+  related_type String?   @db.VarChar(50)
+  related_id   BigInt?
+  from_user_id BigInt?
+  is_read      Boolean   @default(false)
+  push_status  Int       @default(0) @db.TinyInt
+  created_at   DateTime  @default(now()) @db.DateTime(0)
+  updated_at   DateTime  @updatedAt @db.DateTime(0)
+  deleted_at   DateTime? @db.DateTime(0)
+  user         User      @relation("notification_recipient", fields: [user_id], references: [id])
+  from_user    User?     @relation("notification_sender", fields: [from_user_id], references: [id])
+
+  @@index([user_id, is_read, created_at])
+  @@map("notifications")
+}
+
+model AdminUser {
+  id              BigInt    @id @default(autoincrement())
+  username        String    @unique @db.VarChar(50)
+  password_hash   String    @db.VarChar(255)
+  role            Int       @db.TinyInt
+  last_login_at   DateTime? @db.DateTime(0)
+  last_login_ip   String?   @db.VarChar(45)
+  created_at      DateTime  @default(now()) @db.DateTime(0)
+  updated_at      DateTime  @updatedAt @db.DateTime(0)
+  deleted_at      DateTime? @db.DateTime(0)
+  handled_reports Report[]  @relation("report_handler")
+
+  @@map("admin_users")
+}
+
+model Report {
+  id               BigInt     @id @default(autoincrement())
+  reporter_user_id BigInt
+  reported_user_id BigInt?
+  ride_id          BigInt?
+  activity_id      BigInt?
+  content_type     String     @db.VarChar(20)
+  content_id       BigInt?
+  reason           Int        @db.TinyInt
+  description      String?    @db.VarChar(500)
+  evidence_images  Json?
+  status           Int        @default(0) @db.TinyInt
+  handled_by       BigInt?
+  handled_at       DateTime?  @db.DateTime(0)
+  handling_note    String?    @db.VarChar(500)
+  created_at       DateTime   @default(now()) @db.DateTime(0)
+  updated_at       DateTime   @updatedAt @db.DateTime(0)
+  deleted_at       DateTime?  @db.DateTime(0)
+  reporter         User       @relation("reporter", fields: [reporter_user_id], references: [id])
+  reported_user    User?      @relation("reported_user", fields: [reported_user_id], references: [id])
+  ride             Ride?      @relation("reported_ride", fields: [ride_id], references: [id])
+  activity         Activity?  @relation("reported_activity", fields: [activity_id], references: [id])
+  handler          AdminUser? @relation("report_handler", fields: [handled_by], references: [id])
+
+  @@index([reporter_user_id])
+  @@index([reported_user_id])
+  @@index([content_type, content_id])
+  @@index([status, created_at])
+  @@map("reports")
+}
+
+model SystemSetting {
+  id         BigInt    @id @default(autoincrement())
+  key        String    @unique @db.VarChar(100)
+  value      String    @db.Text
+  created_at DateTime  @default(now()) @db.DateTime(0)
+  updated_at DateTime  @updatedAt @db.DateTime(0)
+  deleted_at DateTime? @db.DateTime(0)
+
+  @@map("system_settings")
+}
+
+model FileRecord {
+  id         BigInt   @id @default(autoincrement())
+  user_id    BigInt
+  file_key   String   @unique @db.VarChar(255)
+  file_url   String   @db.VarChar(500)
+  cdn_url    String   @db.VarChar(500)
+  file_size  Int
+  file_type  String   @db.VarChar(50)
+  created_at DateTime @default(now()) @db.DateTime(0)
+  user       User     @relation(fields: [user_id], references: [id])
+
+  @@index([user_id, created_at])
+  @@map("file_records")
+}

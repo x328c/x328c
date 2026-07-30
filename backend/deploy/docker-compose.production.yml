@@ -1,0 +1,144 @@
+name: jiangxing
+
+services:
+  app:
+    # 后端不映射宿主机端口，仅接受 Nginx 容器的内部请求。
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: jiangxing-backend:local
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      PORT: ${PORT}
+      TZ: ${TZ}
+      DATABASE_URL: ${DATABASE_URL}
+      RUN_PRISMA_MIGRATIONS: ${RUN_PRISMA_MIGRATIONS}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_DB: ${REDIS_DB}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN}
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET}
+      ADMIN_JWT_EXPIRES_IN: ${ADMIN_JWT_EXPIRES_IN}
+      WECHAT_APP_ID: ${WECHAT_APP_ID}
+      WECHAT_APP_SECRET: ${WECHAT_APP_SECRET}
+      CONTENT_SECURITY_ENABLED: ${CONTENT_SECURITY_ENABLED}
+      TENCENT_SECRET_ID: ${TENCENT_SECRET_ID}
+      TENCENT_SECRET_KEY: ${TENCENT_SECRET_KEY}
+      TENCENT_CMS_REGION: ${TENCENT_CMS_REGION}
+      COS_SECRET_ID: ${COS_SECRET_ID}
+      COS_SECRET_KEY: ${COS_SECRET_KEY}
+      COS_BUCKET: ${COS_BUCKET}
+      COS_REGION: ${COS_REGION}
+      COS_CDN_DOMAIN: ${COS_CDN_DOMAIN}
+      COS_APP_ID: ${COS_APP_ID}
+      TENCENT_COS_BUCKET: ${TENCENT_COS_BUCKET}
+      TENCENT_COS_REGION: ${TENCENT_COS_REGION}
+      SUBSCRIPTION_MESSAGE_ENABLED: ${SUBSCRIPTION_MESSAGE_ENABLED}
+      WECHAT_SUBSCRIBE_RIDE_JOIN_TEMPLATE_ID: ${WECHAT_SUBSCRIBE_RIDE_JOIN_TEMPLATE_ID}
+      WECHAT_SUBSCRIBE_RIDE_DEPARTURE_TEMPLATE_ID: ${WECHAT_SUBSCRIBE_RIDE_DEPARTURE_TEMPLATE_ID}
+      WECHAT_SUBSCRIBE_RIDE_CANCEL_TEMPLATE_ID: ${WECHAT_SUBSCRIBE_RIDE_CANCEL_TEMPLATE_ID}
+      WECHAT_SUBSCRIBE_ACTIVITY_AUDIT_TEMPLATE_ID: ${WECHAT_SUBSCRIBE_ACTIVITY_AUDIT_TEMPLATE_ID}
+      WECHAT_SUBSCRIBE_ACTIVITY_CANCEL_TEMPLATE_ID: ${WECHAT_SUBSCRIBE_ACTIVITY_CANCEL_TEMPLATE_ID}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 45s
+    restart: unless-stopped
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: local
+      options:
+        max-size: 20m
+        max-file: "5"
+
+  mysql:
+    # 数据库端口不映射到宿主机，数据保存在具名卷中。
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      TZ: ${TZ}
+    command:
+      - --default-authentication-plugin=mysql_native_password
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    restart: unless-stopped
+    logging:
+      driver: local
+      options:
+        max-size: 20m
+        max-file: "5"
+
+  redis:
+    # Redis 开启 AOF 持久化与密码认证，且不暴露宿主机端口。
+    image: redis:7-alpine
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    command: ["sh", "-ec", "exec redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\""]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+    logging:
+      driver: local
+      options:
+        max-size: 20m
+        max-file: "5"
+
+  nginx:
+    # 对外唯一入口；启用 HTTPS 后在此服务上增加 443 端口与证书挂载。
+    image: nginx:1.27-alpine
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+      - /tmp
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: local
+      options:
+        max-size: 20m
+        max-file: "5"
+
+volumes:
+  # Docker 具名卷，执行 compose down 不会删除；仅 down -v 才会删除数据。
+  mysql_data:
+  redis_data:

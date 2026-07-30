@@ -1,0 +1,36 @@
+export default defineAppConfig({
+  pages: [
+    "pages/auth/index",
+    "pages/index/index",
+    "pages/rides/create/index",
+    "pages/rides/detail/index",
+    "pages/rides/participants/index",
+    "pages/activities/index",
+    "pages/activities/detail/index",
+    "pages/activities/create/index",
+    "pages/profile/edit/index",
+    "pages/my/rides/index",
+    "pages/my/activities/index",
+    "pages/settings/index",
+    "pages/users/profile/index",
+    "pages/messages/index",
+    "pages/profile/index",
+  ],
+  window: {
+    backgroundTextStyle: "light",
+    navigationBarBackgroundColor: "#fff",
+    navigationBarTitleText: "疆行机车圈",
+    navigationBarTextStyle: "black",
+  },
+  tabBar: {
+    color: "#8c8c8c",
+    selectedColor: "#1f7a4d",
+    backgroundColor: "#ffffff",
+    borderStyle: "white",
+    list: [
+      { pagePath: "pages/index/index", text: "⌂ 首页" },
+      { pagePath: "pages/messages/index", text: "✉ 消息" },
+      { pagePath: "pages/profile/index", text: "● 我的" },
+    ],
+  },
+});
