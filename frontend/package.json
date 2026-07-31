@@ -1,8 +1,8 @@
 {
-  "name": "jiangxing-miniapp",
+  "name": "modazi-miniapp",
   "version": "1.0.0",
   "private": true,
-  "description": "疆行机车圈微信小程序",
+  "description": "摩搭子助手微信小程序",
   "templateInfo": {
     "name": "default",
     "typescript": true,

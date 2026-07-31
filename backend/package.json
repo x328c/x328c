@@ -1,7 +1,7 @@
 {
-  "name": "jiangxing-backend",
+  "name": "modazi-backend",
   "version": "0.0.1",
-  "description": "疆行机车圈 - 后端API服务",
+  "description": "摩搭子助手 - 后端API服务",
   "author": "",
   "private": true,
   "license": "UNLICENSED",

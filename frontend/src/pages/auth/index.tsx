@@ -32,6 +32,26 @@ export default function AuthPage() {
     }
   };
 
+  const handleGetUserInfo = (event: {
+    detail: {
+      errMsg?: string;
+      userInfo?: { nickName: string; avatarUrl: string };
+    };
+  }) => {
+    const userInfo = event.detail.userInfo;
+    if (!userInfo) {
+      void Taro.showToast({
+        title:
+          event.detail.errMsg === "getUserInfo:fail auth deny"
+            ? "需要同意授权后才能登录"
+            : "未获取到微信资料，请重试",
+        icon: "none",
+      });
+      return;
+    }
+    void handleLogin(userInfo);
+  };
+
   return (
     <View className="auth-page">
       <View className="auth-page__content">
@@ -45,11 +65,7 @@ export default function AuthPage() {
           openType="getUserInfo"
           loading={submitting}
           disabled={submitting}
-          onGetUserInfo={(e) => {
-            if (e.detail.userInfo) {
-              void handleLogin(e.detail.userInfo);
-            }
-          }}
+          onGetUserInfo={handleGetUserInfo}
         >
           微信一键登录
         </Button>
