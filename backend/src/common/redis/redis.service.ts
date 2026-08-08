@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { randomInt, randomUUID } from 'node:crypto';
 import Redis from 'ioredis';
 
 export type GeoUnit = 'm' | 'km' | 'mi' | 'ft';
@@ -43,8 +44,33 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     if (ttlSeconds) await this.client.set(key, value, 'EX', ttlSeconds);
     else await this.client.set(key, value);
   }
+
+  async setWithJitter(
+    key: string,
+    value: string,
+    ttlSeconds: number,
+    jitterSeconds = Math.max(1, Math.floor(ttlSeconds * 0.1)),
+  ): Promise<number> {
+    const jitter = jitterSeconds > 0 ? randomInt(0, jitterSeconds + 1) : 0;
+    const effectiveTtl = ttlSeconds + jitter;
+    await this.client.set(key, value, 'EX', effectiveTtl);
+    return effectiveTtl;
+  }
+  async setIfAbsent(key: string, value: string, ttlSeconds: number): Promise<boolean> {
+    return (await this.client.set(key, value, 'EX', ttlSeconds, 'NX')) === 'OK';
+  }
   async del(...keys: string[]): Promise<number> {
     return keys.length ? this.client.del(...keys) : 0;
+  }
+  async deleteByPattern(pattern: string): Promise<number> {
+    let cursor = '0';
+    let deleted = 0;
+    do {
+      const [nextCursor, keys] = await this.client.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+      cursor = nextCursor;
+      if (keys.length) deleted += await this.client.del(...keys);
+    } while (cursor !== '0');
+    return deleted;
   }
   async incr(key: string): Promise<number> {
     return this.client.incr(key);
@@ -54,6 +80,40 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
   async ttl(key: string): Promise<number> {
     return this.client.ttl(key);
+  }
+
+  async withLock<T>(
+    key: string,
+    ttlSeconds: number,
+    operation: () => Promise<T>,
+  ): Promise<T | null> {
+    const token = randomUUID();
+    const acquired = await this.setIfAbsent(key, token, ttlSeconds);
+    if (!acquired) return null;
+    try {
+      return await operation();
+    } finally {
+      const release = `
+        if redis.call('GET', KEYS[1]) == ARGV[1] then
+          return redis.call('DEL', KEYS[1])
+        end
+        return 0
+      `;
+      await this.client.eval(release, 1, key, token).catch(() => undefined);
+    }
+  }
+  async incrementWithinWindow(
+    key: string,
+    ttlSeconds: number,
+  ): Promise<{ count: number; ttlSeconds: number }> {
+    const script = `
+      local count = redis.call('INCR', KEYS[1])
+      if count == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end
+      local ttl = redis.call('TTL', KEYS[1])
+      return { count, ttl }
+    `;
+    const result = (await this.client.eval(script, 1, key, ttlSeconds)) as [number, number];
+    return { count: Number(result[0]), ttlSeconds: Number(result[1]) };
   }
   async geoAdd(key: string, longitude: number, latitude: number, member: string): Promise<number> {
     return this.client.geoadd(key, longitude, latitude, member);

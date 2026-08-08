@@ -9,8 +9,21 @@ import Taro from "@tarojs/taro";
 import { API_BASE } from "@/config";
 import { useUserStore } from "@/stores/user-store";
 import { ApiEnvelope, AuthTokens } from "@/types/api";
+import { currentPageUrl, openLogin } from "@/utils/login-return";
 
 const REQUEST_TIMEOUT = 10_000;
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly code?: number,
+    readonly status?: number,
+    readonly requestId?: string,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
 
 function isAbsoluteUrl(url: string): boolean {
   return /^https?:\/\//.test(url);
@@ -143,7 +156,7 @@ http.interceptors.response.use(
       } catch {
         useUserStore.getState().clearSession();
         // 会话已无法恢复，不能静默重新登录；跳转授权页让用户主动确认登录。
-        void Taro.reLaunch({ url: "/pages/auth/index" });
+        void openLogin(currentPageUrl(), true);
       } finally {
         refreshPromise = null;
       }
@@ -153,11 +166,22 @@ http.interceptors.response.use(
 );
 
 export async function request<T>(config: AxiosRequestConfig): Promise<T> {
-  const response = await http.request<T>(config);
-  const payload = response.data as ApiEnvelope<T>;
-  if (typeof payload === "object" && payload !== null && "code" in payload) {
-    if (payload.code !== 0) throw new Error(payload.message);
-    return payload.data;
+  try {
+    const response = await http.request<T>(config);
+    const payload = response.data as ApiEnvelope<T>;
+    if (typeof payload === "object" && payload !== null && "code" in payload) {
+      if (payload.code !== 0) throw new ApiError(payload.message, payload.code, response.status, payload.requestId);
+      return payload.data;
+    }
+    return response.data as T;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    if (axios.isAxiosError(error)) {
+      const payload = error.response?.data as Partial<ApiEnvelope<unknown>> | undefined;
+      if (payload && typeof payload.code === "number") {
+        throw new ApiError(payload.message ?? "请求失败", payload.code, error.response?.status, payload.requestId);
+      }
+    }
+    throw error;
   }
-  return response.data as T;
 }

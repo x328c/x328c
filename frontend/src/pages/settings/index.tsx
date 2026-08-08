@@ -9,7 +9,7 @@ export default function Settings() {
       title: "确认退出登录",
       content: "退出后将不再显示当前账号的个人资料和消息。",
       confirmText: "退出登录",
-      confirmColor: "#1E6FFF",
+      confirmColor: "#C74700",
     });
     if (!result.confirm) return;
     await logout();

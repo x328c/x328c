@@ -6,8 +6,9 @@ import prodConfig from './prod'
 
 // https://taro-docs.jd.com/docs/next/config#defineconfig-辅助函数
 export default defineConfig<'vite'>(async (merge) => {
+  const tabVariant = process.env.TARO_APP_TAB_VARIANT === '5' ? '5' : '4'
   const baseConfig: UserConfigExport<'vite'> = {
-    projectName: 'jiangxing-miniapp',
+    projectName: 'modazi-miniapp',
     date: '2026-7-12',
     designWidth: 750,
     deviceRatio: {
@@ -25,6 +26,7 @@ export default defineConfig<'vite'>(async (merge) => {
       "@tarojs/plugin-generator"
     ],
     defineConstants: {
+      __MESSAGE_TAB_INDEX__: JSON.stringify(tabVariant === '5' ? 3 : 2),
       __RIDE_REMINDER_TEMPLATE_ID__: JSON.stringify(
         process.env.TARO_APP_RIDE_REMINDER_TEMPLATE_ID ?? '',
       ),
@@ -42,6 +44,12 @@ export default defineConfig<'vite'>(async (merge) => {
       // `zustand/react`，导致产物调用不存在的 React.create。启用调试版
       // React 可跳过该别名；production mode 仍会使用生产版 React。
       debugReact: true,
+      // Taro 4.2 的 Vite 4 runner 仍调用 Dart Sass legacy JS API，且当前
+      // runner 没有 modern API 切换项。仅静默该上游弃用提示，其他 Sass
+      // 弃用（例如业务代码中的 @import）继续正常报告。
+      sassLoaderOption: {
+        silenceDeprecations: ['legacy-js-api'],
+      },
       postcss: {
         pxtransform: {
           enable: true,

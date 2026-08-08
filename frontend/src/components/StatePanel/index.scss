@@ -1,0 +1,64 @@
+@use "../../styles/tokens" as tokens;
+
+.state-panel {
+  box-sizing: border-box;
+  min-height: 420rpx;
+  padding: 96rpx 48rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+
+  &__icon {
+    width: 96rpx;
+    height: 96rpx;
+    border: 2rpx solid tokens.$border;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: tokens.$surface;
+    color: tokens.$ink-600;
+    font-size: 36rpx;
+    font-weight: 700;
+  }
+
+  &__title {
+    margin-top: 28rpx;
+    color: tokens.$ink-900;
+    font-size: 32rpx;
+    font-weight: 600;
+  }
+
+  &__description {
+    max-width: 520rpx;
+    margin-top: 16rpx;
+    color: tokens.$ink-600;
+    font-size: 26rpx;
+    line-height: 1.6;
+  }
+
+  &__action {
+    min-width: 240rpx;
+    margin-top: 36rpx;
+    border: 0;
+    border-radius: 48rpx;
+    background: tokens.$action-orange;
+    color: tokens.$surface;
+    font-size: 28rpx;
+
+    &::after {
+      border: 0;
+    }
+  }
+
+  &--error &__icon,
+  &--offline &__icon {
+    color: tokens.$danger;
+  }
+
+  &--pending &__icon {
+    color: tokens.$warning;
+  }
+}

@@ -1,24 +1,24 @@
-.ride-detail { min-height: 100vh; padding: 32rpx 28rpx 156rpx; background: #f7f8f7; color: #1a251e;
+.ride-detail { min-height: 100vh; padding: 32rpx 28rpx 156rpx; background: #f5f5f5; color: #1f1f1f;
   &__cancelled { margin-bottom: 22rpx; padding: 18rpx 22rpx; border-radius: 12rpx; color: #bd3a3a; background: #fff0f0; font-size: 25rpx; }
   &__title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 20rpx; }
   &__title { flex: 1; font-size: 44rpx; line-height: 1.35; font-weight: 800; }
   &__creator, &__item, &__people-title, &__section-title, &__bottom { display: flex; align-items: center; }
   &__creator { margin: 32rpx 0; gap: 18rpx; }
   &__avatar { width: 76rpx; height: 76rpx; border-radius: 50%; background: #e1eee5; }
-  &__avatar--placeholder { display: flex; align-items: center; justify-content: center; color: #1f7a4d; font-weight: 700; }
+  &__avatar--placeholder { display: flex; align-items: center; justify-content: center; color: #c74700; font-weight: 700; }
   &__name, &__creator-meta, &__item-label, &__item-value, &__description { display: block; }
-  &__name { font-size: 30rpx; font-weight: 650; } &__creator-meta { margin-top: 8rpx; color: #829087; font-size: 24rpx; }
+  &__name { font-size: 30rpx; font-weight: 650; } &__creator-meta { margin-top: 8rpx; color: #767676; font-size: 24rpx; }
   &__chevron { margin-left: auto; color: #8b978f; font-size: 44rpx; }
   &__card, &__section { margin-bottom: 24rpx; padding: 28rpx; border-radius: 20rpx; background: #fff; }
-  &__item { min-height: 100rpx; gap: 18rpx; } &__item + &__item { border-top: 1rpx solid #edf0ee; }
-  &__icon { font-size: 34rpx; } &__item-label { color: #89958e; font-size: 23rpx; } &__item-value { margin-top: 8rpx; font-size: 27rpx; }
-  &__map-copy { flex: 1; } &__map { padding: 12rpx 16rpx; border-radius: 12rpx; color: #1f7a4d; background: #eaf5ed; font-size: 22rpx; }
+  &__item { min-height: 100rpx; gap: 18rpx; } &__item + &__item { border-top: 1rpx solid #e5e5e5; }
+  &__icon { font-size: 34rpx; } &__item-label { color: #767676; font-size: 23rpx; } &__item-value { margin-top: 8rpx; font-size: 27rpx; }
+  &__map-copy { flex: 1; } &__map { padding: 12rpx 16rpx; border-radius: 12rpx; color: #c74700; background: #fff1e8; font-size: 22rpx; }
   &__people { margin-top: 18rpx; padding-top: 24rpx; border-top: 1rpx solid #edf0ee; } &__people-title, &__section-title { justify-content: space-between; margin-bottom: 18rpx; font-size: 26rpx; } &__people-title Text:last-child, &__section-title Text:last-child { color: #849188; font-size: 23rpx; }
   &__section-heading { display: block; margin-bottom: 18rpx; font-size: 30rpx; font-weight: 700; }
-  &__avatars { white-space: nowrap; } &__avatars-inner { display: inline-flex; gap: 14rpx; min-width: 100%; } &__participant-wrap { position: relative; display: flex; flex-direction: column; align-items: center; } &__participant { width: 68rpx; height: 68rpx; border: 4rpx solid #fff; border-radius: 50%; background: #e8edea; } &__participant--placeholder { display: flex; align-items: center; justify-content: center; color: #53715e; font-size: 26rpx; } &__creator-badge { margin-top:4rpx; padding: 2rpx 8rpx; border-radius: 8rpx; color: #1f7a4d; background: #e8f5ec; font-size: 18rpx; line-height: 1.3; } &__no-participant { color: #95a099; font-size: 25rpx; }
-  &__description { display: -webkit-box; overflow: hidden; color: #536158; font-size: 27rpx; line-height: 1.7; -webkit-box-orient: vertical; -webkit-line-clamp: 3; } &__description--expanded { display: block; } &__expand { display: block; margin-top: 12rpx; color: #1f7a4d; font-size: 26rpx; }
+  &__avatars { white-space: nowrap; } &__avatars-inner { display: inline-flex; gap: 14rpx; min-width: 100%; } &__participant-wrap { position: relative; display: flex; flex-direction: column; align-items: center; } &__participant { width: 68rpx; height: 68rpx; border: 4rpx solid #fff; border-radius: 50%; background: #f5f5f5; } &__participant--placeholder { display: flex; align-items: center; justify-content: center; color: #595959; font-size: 26rpx; } &__creator-badge { margin-top:4rpx; padding: 2rpx 8rpx; border-radius: 8rpx; color: #c74700; background: #fff1e8; font-size: 18rpx; line-height: 1.3; } &__no-participant { color: #767676; font-size: 25rpx; }
+  &__description { display: -webkit-box; overflow: hidden; color: #595959; font-size: 27rpx; line-height: 1.7; -webkit-box-orient: vertical; -webkit-line-clamp: 3; } &__description--expanded { display: block; } &__expand { display: block; margin-top: 12rpx; color: #c74700; font-size: 26rpx; }
   &__safety { margin-bottom: 20rpx; padding: 20rpx 24rpx; border-radius: 14rpx; color: #98752c; background: #fff7df; font-size: 23rpx; line-height: 1.55; }
   &__bottom { position: fixed; z-index: 5; right: 0; bottom: 0; left: 0; gap: 22rpx; padding: 20rpx 28rpx calc(20rpx + env(safe-area-inset-bottom)); background: #fff; box-shadow: 0 -2rpx 18rpx rgba(13, 33, 20, .08); }
-  &__contact, &__join { flex: 1; padding: 24rpx 8rpx; border-radius: 14rpx; text-align: center; font-size: 29rpx; font-weight: 650; } &__contact { color: #1f7a4d; background: #eaf5ed; } &__join { color: #fff; background: #1f7a4d; } &__join--disabled { background: #b9c4bd; }
+  &__contact, &__join { flex: 1; padding: 24rpx 8rpx; border-radius: 14rpx; text-align: center; font-size: 29rpx; font-weight: 650; } &__contact { color: #c74700; background: #fff1e8; } &__join { color: #fff; background: #c74700; } &__join--disabled { background: #b7b7b7; }
   &__sheet { position: fixed; z-index: 20; inset: 0; display: flex; align-items: flex-end; } &__sheet-mask { position: absolute; inset: 0; background: rgb(0 0 0 / 42%); } &__sheet-panel { position: relative; box-sizing: border-box; width: 100%; padding: 28rpx 28rpx calc(28rpx + env(safe-area-inset-bottom)); border-radius: 28rpx 28rpx 0 0; background: #fff; text-align: center; } &__sheet-title { display: block; margin-bottom: 20rpx; font-size: 31rpx; font-weight: 700; } &__sheet-message { display: block; margin-bottom: 22rpx; color: #748178; font-size: 26rpx; line-height: 1.6; } &__sheet-action, &__sheet-cancel { display: block; padding: 26rpx; border-radius: 14rpx; font-size: 29rpx; } &__sheet-action { margin-top: 14rpx; color: #bd3a3a; background: #fff3f3; } &__sheet-cancel { margin-top: 16rpx; color: #68766d; background: #f2f4f3; }
 }

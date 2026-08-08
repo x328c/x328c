@@ -1,0 +1,6 @@
+@use "../../styles/tokens" as *;
+.source-block { padding: $space-4; border: 1px solid $color-border; border-radius: $radius-lg; background: #fff; }
+.source-block__title { display: block; color: $color-text; font-size: 30px; font-weight: 650; }
+.source-block__line, .source-block__url { display: block; margin-top: $space-2; color: $color-text-secondary; font-size: 24px; line-height: 1.55; }
+.source-block__url { color: $link; word-break: break-all; }
+.source-block__action { min-height: 72px; margin-top: $space-3; display: grid; place-items: center; border-radius: $radius-md; background: $action-orange; color: #fff; font-size: 26px; font-weight: 600; }

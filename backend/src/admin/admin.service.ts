@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Prisma } from '@prisma/client';
@@ -6,17 +6,19 @@ import * as bcrypt from 'bcrypt';
 import { AppException } from '../common/exceptions/app.exception';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { RedisService } from '../common/redis/redis.service';
+import { OperationLogService } from '../common/operation-log/operation-log.service';
+import { OperationActorContext } from '../common/operation-log/operation-log.types';
 import { AdminContentQueryDto, AdminLoginDto, AdminUserQueryDto } from './dto';
 import { AdminJwtPayload } from './entity/admin-token.entity';
 
 @Injectable()
 export class AdminService {
-  private readonly logger = new Logger(AdminService.name);
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly redis: RedisService,
+    private readonly operationLogs: OperationLogService,
   ) {}
   async login(dto: AdminLoginDto, ip?: string) {
     const admin = await this.prisma.adminUser.findFirst({
@@ -86,20 +88,40 @@ export class AdminService {
       pagination: { page, pageSize, total },
     };
   }
-  async offlineRide(id: bigint) {
+  async offlineRide(id: bigint, audit: OperationActorContext) {
     const ride = await this.prisma.ride.findFirst({ where: { id, deleted_at: null } });
     if (!ride) throw new AppException(3001, '约骑不存在', HttpStatus.NOT_FOUND);
-    await this.prisma.ride.update({ where: { id }, data: { status: 5, audit_status: 2 } });
+    await this.prisma.$transaction(async (tx) => {
+      await tx.ride.update({ where: { id }, data: { status: 5, audit_status: 2 } });
+      await this.operationLogs.appendWithClient(tx, {
+        ...audit,
+        action: 'ride.offline',
+        objectType: 'ride',
+        objectId: id.toString(),
+        reason: 'V1 管理接口下架',
+        beforeSummary: { status: ride.status, audit_status: ride.audit_status },
+        afterSummary: { status: 5, audit_status: 2 },
+      });
+    });
     await this.redis.geoRemove(`geo:rides:${ride.city_code}`, id.toString());
     return { success: true };
   }
-  async deleteRide(id: bigint) {
+  async deleteRide(id: bigint, audit: OperationActorContext) {
     const ride = await this.prisma.ride.findUnique({ where: { id } });
     if (!ride) throw new AppException(3001, '约骑不存在', HttpStatus.NOT_FOUND);
     await this.prisma.$transaction(async (tx) => {
       await tx.rideParticipant.deleteMany({ where: { ride_id: id } });
       await tx.report.deleteMany({ where: { ride_id: id } });
       await tx.ride.delete({ where: { id } });
+      await this.operationLogs.appendWithClient(tx, {
+        ...audit,
+        action: 'ride.delete',
+        objectType: 'ride',
+        objectId: id.toString(),
+        reason: 'V1 管理接口删除',
+        beforeSummary: { status: ride.status, audit_status: ride.audit_status },
+        afterSummary: { deleted: true },
+      });
     });
     await this.redis.geoRemove(`geo:rides:${ride.city_code}`, id.toString());
     return { success: true };
@@ -151,19 +173,39 @@ export class AdminService {
       pagination: { page, pageSize, total },
     };
   }
-  async offlineActivity(id: bigint) {
+  async offlineActivity(id: bigint, audit: OperationActorContext) {
     const activity = await this.prisma.activity.findFirst({ where: { id, deleted_at: null } });
     if (!activity) throw new AppException(4001, '活动不存在', HttpStatus.NOT_FOUND);
-    await this.prisma.activity.update({ where: { id }, data: { status: 5 } });
+    await this.prisma.$transaction(async (tx) => {
+      await tx.activity.update({ where: { id }, data: { status: 5 } });
+      await this.operationLogs.appendWithClient(tx, {
+        ...audit,
+        action: 'activity.offline',
+        objectType: 'activity',
+        objectId: id.toString(),
+        reason: 'V1 管理接口下架',
+        beforeSummary: { status: activity.status },
+        afterSummary: { status: 5 },
+      });
+    });
     return { success: true };
   }
-  async deleteActivity(id: bigint) {
+  async deleteActivity(id: bigint, audit: OperationActorContext) {
     const activity = await this.prisma.activity.findUnique({ where: { id } });
     if (!activity) throw new AppException(4001, '活动不存在', HttpStatus.NOT_FOUND);
     await this.prisma.$transaction(async (tx) => {
       await tx.activityRegistration.deleteMany({ where: { activity_id: id } });
       await tx.report.deleteMany({ where: { activity_id: id } });
       await tx.activity.delete({ where: { id } });
+      await this.operationLogs.appendWithClient(tx, {
+        ...audit,
+        action: 'activity.delete',
+        objectType: 'activity',
+        objectId: id.toString(),
+        reason: 'V1 管理接口删除',
+        beforeSummary: { status: activity.status },
+        afterSummary: { deleted: true },
+      });
     });
     return { success: true };
   }
@@ -228,18 +270,39 @@ export class AdminService {
       statistics: { ride_count: rideCount, activity_count: activityCount },
     };
   }
-  async banUser(id: bigint, reason: string) {
+  async banUser(id: bigint, reason: string, audit: OperationActorContext) {
     const user = await this.prisma.user.findFirst({ where: { id, deleted_at: null } });
     if (!user) throw new AppException(8001, '用户不存在', HttpStatus.NOT_FOUND);
     if (user.status === 0) throw new AppException(8002, '用户已封禁');
-    await this.prisma.user.update({ where: { id }, data: { status: 0 } });
-    this.logger.warn(`User ${id.toString()} banned: ${reason}`);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({ where: { id }, data: { status: 0 } });
+      await this.operationLogs.appendWithClient(tx, {
+        ...audit,
+        action: 'user.ban',
+        objectType: 'user',
+        objectId: id.toString(),
+        reason,
+        beforeSummary: { status: user.status },
+        afterSummary: { status: 0 },
+      });
+    });
     return { success: true };
   }
-  async unbanUser(id: bigint) {
+  async unbanUser(id: bigint, audit: OperationActorContext) {
     const user = await this.prisma.user.findFirst({ where: { id, deleted_at: null } });
     if (!user) throw new AppException(8001, '用户不存在', HttpStatus.NOT_FOUND);
-    await this.prisma.user.update({ where: { id }, data: { status: 1 } });
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({ where: { id }, data: { status: 1 } });
+      await this.operationLogs.appendWithClient(tx, {
+        ...audit,
+        action: 'user.unban',
+        objectType: 'user',
+        objectId: id.toString(),
+        reason: 'V1 管理接口解除封禁',
+        beforeSummary: { status: user.status },
+        afterSummary: { status: 1 },
+      });
+    });
     return { success: true };
   }
   async overview() {

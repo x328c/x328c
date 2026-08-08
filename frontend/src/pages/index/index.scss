@@ -1,19 +1,21 @@
 .ride-square {
   min-height: 100vh;
   padding: 24rpx 24rpx 150rpx;
-  background: #f7f8f7;
+  background: #f5f5f5;
 
-  &__toolbar, &__tabs { display: flex; align-items: center; }
+  &__toolbar, &__tabs, &__actions { display: flex; align-items: center; }
+  &__actions { gap: 12rpx; }
   &__toolbar { justify-content: space-between; margin-bottom: 28rpx; }
   &__city { display: flex; gap: 8rpx; align-items: center; color: #18231d; font-size: 32rpx; font-weight: 600; }
-  &__pin { color: #1f7a4d; }
-  &__arrow { color: #829087; font-size: 28rpx; }
-  &__filter { padding: 12rpx 22rpx; border-radius: 28rpx; color: #1f7a4d; background: #e8f4ed; font-size: 26rpx; }
+  &__pin { color: #c74700; }
+  &__arrow { color: #767676; font-size: 28rpx; }
+  &__filter { padding: 12rpx 22rpx; border-radius: 28rpx; color: #c74700; background: #fff1e8; font-size: 26rpx; }
+  &__regulations { padding: 12rpx 18rpx; border-radius: 28rpx; color: #c74700; background: #fff1e8; font-size: 24rpx; }
   &__tabs { gap: 52rpx; border-bottom: 1rpx solid #e7ebe8; }
   &__tab { padding: 0 4rpx 18rpx; color: #8a968e; font-size: 30rpx; }
-  &__tab--active { position: relative; color: #17251d; font-weight: 700; }
-  &__tab--active::after { position: absolute; right: 6rpx; bottom: -1rpx; left: 6rpx; height: 6rpx; border-radius: 6rpx; background: #1f7a4d; content: ""; }
+  &__tab--active { position: relative; color: #1f1f1f; font-weight: 700; }
+  &__tab--active::after { position: absolute; right: 6rpx; bottom: -1rpx; left: 6rpx; height: 6rpx; border-radius: 6rpx; background: #ff6a00; content: ""; }
   &__list { padding-top: 20rpx; }
-  &__more { display: block; padding: 24rpx; color: #95a099; text-align: center; font-size: 24rpx; }
-  &__create { position: fixed; right: 40rpx; bottom: calc(128rpx + env(safe-area-inset-bottom)); display: flex; align-items: center; justify-content: center; width: 96rpx; height: 96rpx; border-radius: 50%; background: #1f7a4d; color: #fff; box-shadow: 0 10rpx 20rpx rgba(31, 122, 77, .28); font-size: 64rpx; line-height: 1; }
+  &__more { display: block; padding: 24rpx; color: #767676; text-align: center; font-size: 24rpx; }
+  &__create { position: fixed; right: 40rpx; bottom: calc(128rpx + env(safe-area-inset-bottom)); display: flex; align-items: center; justify-content: center; width: 96rpx; height: 96rpx; border-radius: 50%; background: #c74700; color: #fff; box-shadow: 0 10rpx 20rpx rgba(199, 71, 0, .28); font-size: 64rpx; line-height: 1; }
 }

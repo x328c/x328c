@@ -18,13 +18,19 @@ interface UploadSignature {
   expired_time?: number | string;
 }
 interface UploadCallback {
+  id: string;
   cdn_url: string;
+}
+
+export interface UploadedImage {
+  id: string;
+  url: string;
 }
 
 export async function uploadImage(
   filePath: string,
   fallbackType: ImageMime = "image/jpeg",
-  category: "rides" | "activities" | "avatars" = "rides",
+  category: "rides" | "activities" | "avatars" | "forum" = "rides",
 ): Promise<string> {
   const [fileInfo, fileType] = await Promise.all([
     Taro.getFileInfo({ filePath }),
@@ -74,6 +80,54 @@ export async function uploadImage(
     },
   });
   return callback.cdn_url;
+}
+
+export async function uploadForumImage(filePath: string): Promise<UploadedImage> {
+  const [fileInfo, fileType] = await Promise.all([
+    Taro.getFileInfo({ filePath }),
+    resolveImageMimeType(filePath, "image/jpeg"),
+  ]);
+  if (!("size" in fileInfo)) throw new Error("无法读取图片文件信息");
+  if (fileInfo.size > 5 * 1024 * 1024) throw new Error("图片不能超过 5MB");
+  const signature = await request<UploadSignature>({
+    method: "GET",
+    url: `${API_BASE}/files/upload-signature`,
+    params: { file_type: fileType, category: "forum" },
+  });
+  const now = Math.floor(Date.now() / 1000);
+  const cos = new COS({
+    getAuthorization: (_options, callback) =>
+      callback({
+        TmpSecretId: signature.credentials.tmp_secret_id,
+        TmpSecretKey: signature.credentials.tmp_secret_key,
+        SecurityToken: signature.credentials.session_token,
+        StartTime: now - 5,
+        ExpiredTime: normalizeExpireTime(signature.expired_time, now + 1800),
+      }),
+  });
+  await new Promise<void>((resolve, reject) =>
+    cos.uploadFile(
+      {
+        Bucket: signature.bucket,
+        Region: signature.region,
+        Key: signature.file_key,
+        FilePath: filePath,
+        ContentType: fileType,
+      },
+      (error) => (error ? reject(error) : resolve()),
+    ),
+  );
+  const callback = await request<UploadCallback>({
+    method: "POST",
+    url: `${API_BASE}/files/callback`,
+    data: {
+      file_key: signature.file_key,
+      file_url: signature.file_url,
+      file_size: fileInfo.size,
+      file_type: fileType,
+    },
+  });
+  return { id: callback.id, url: callback.cdn_url };
 }
 
 /** 真机选择图片时不能假定格式为 JPEG；后端仅接受 jpg/png/webp。 */

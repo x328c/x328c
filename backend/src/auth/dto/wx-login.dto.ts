@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsUrl, Length, MaxLength } from 'class-validator';
+import { IsOptional, IsString, Length, MaxLength } from 'class-validator';
 
 export class WxLoginDto {
   @IsString()

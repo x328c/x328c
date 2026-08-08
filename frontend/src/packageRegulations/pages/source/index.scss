@@ -1,0 +1,4 @@
+@use "../../../styles/tokens" as *;
+.source-page { min-height: 100vh; background: $color-bg; }
+.source-page__url { display: block; margin: 0 $space-4; padding: $space-3; border-radius: $radius-md; background: #fff; color: $link; font-size: 24px; line-height: 1.6; word-break: break-all; }
+.source-page__actions { display: flex; gap: $space-3; margin: $space-4; }.source-page__actions View { min-height: 72px; display: grid; flex: 1; place-items: center; border: 1px solid $color-brand; border-radius: $radius-md; color: $color-brand-strong; font-size: 24px; }

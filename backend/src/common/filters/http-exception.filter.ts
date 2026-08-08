@@ -1,5 +1,6 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { getRequestId } from '../request/request-context';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -21,12 +22,15 @@ export class HttpExceptionFilter implements ExceptionFilter {
           ? exception.message
           : '服务器内部错误';
 
+    response.locals.errorCode = code;
+
     response.status(status).json({
       code,
       message: Array.isArray(message) ? message.join('; ') : message,
       data: null,
       timestamp: new Date().toISOString(),
       path: request.url,
+      requestId: getRequestId(request),
     });
   }
 }

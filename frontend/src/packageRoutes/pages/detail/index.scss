@@ -1,0 +1,24 @@
+@use "../../../styles/tokens" as *;
+.route-detail { min-height: 100vh; padding-bottom: 130px; background: $color-bg; }
+.route-detail__cover { width: 100%; height: 390px; }
+.route-detail__header, .route-detail__section { margin-bottom: $space-3; padding: $space-4; background: #fff; }
+.route-detail__title { display: block; color: $color-text; font-size: 40px; font-weight: 700; }
+.route-detail__meta, .route-detail__copy, .route-detail__updated { display: block; margin-top: $space-2; color: $color-text-secondary; font-size: 25px; line-height: 1.6; }
+.route-detail__facts { display: flex; gap: $space-4; margin-top: $space-3; color: $color-text; font-size: 26px; font-weight: 600; }
+.route-detail__heading { display: block; margin-bottom: $space-3; color: $color-text; font-size: 30px; font-weight: 650; }
+.route-detail__label { display: block; margin-top: $space-3; color: $color-text; font-size: 25px; font-weight: 600; }
+.route-detail__map { width: 100%; height: 380px; border-radius: $radius-md; }
+.route-detail__map-fallback { padding: $space-4; border-radius: $radius-md; background: #f2f3f5; color: $color-text-secondary; font-size: 24px; text-align: center; }
+.route-detail__points { margin-top: $space-3; }
+.route-detail__point { display: flex; gap: $space-3; padding: $space-2 0; border-bottom: 1px solid $color-border; }
+.route-detail__point-order { display: grid; width: 42px; height: 42px; flex: 0 0 42px; place-items: center; border-radius: 50%; background: $color-brand-soft; color: $color-brand-strong; }
+.route-detail__point-name { display: block; color: $color-text; font-size: 26px; }
+.route-detail__point-meta, .route-detail__ride-meta { display: block; margin-top: 4px; color: $color-text-secondary; font-size: 22px; }
+.route-detail__safety { margin: 0 $space-4 $space-3; padding: $space-4; border: 1px solid #f6c453; border-radius: $radius-md; background: #fff8e6; color: #7a4b00; font-size: 25px; line-height: 1.6; }
+.route-detail__ride { display: flex; align-items: center; justify-content: space-between; padding: $space-3 0; border-bottom: 1px solid $color-border; }
+.route-detail__ride-title { color: $color-text; font-size: 26px; font-weight: 600; }
+.route-detail__updated { padding: 0 $space-4 $space-4; font-size: 22px; }
+.route-detail__bottom { position: fixed; z-index: 10; right: 0; bottom: 0; left: 0; display: flex; gap: $space-3; padding: $space-3 $space-4 calc($space-3 + env(safe-area-inset-bottom)); background: #fff; box-shadow: 0 -4px 16px rgb(0 0 0 / 8%); }
+.route-detail__favorite, .route-detail__primary { display: grid; height: 76px; place-items: center; border-radius: $radius-md; font-size: 27px; font-weight: 600; }
+.route-detail__favorite { width: 210px; border: 1px solid $color-brand; color: $color-brand-strong; }
+.route-detail__primary { flex: 1; background: $color-brand; color: #fff; }

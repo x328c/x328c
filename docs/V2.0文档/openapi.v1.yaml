@@ -1,0 +1,137 @@
+openapi: 3.0.3
+info:
+  title: 摩搭子助手 API
+  version: 2.0.0
+  description: V2.0 兼容 API 仍使用 /api/v1；错误响应包含 requestId。
+servers:
+  - url: /api/v1
+paths:
+  /routes:
+    get:
+      summary: 已发布路线游标分页
+      parameters: [{name: city_code, in: query, schema: {type: string}}, {name: type, in: query, schema: {type: string}}, {name: difficulty, in: query, schema: {type: string}}, {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 50}}, {name: cursor, in: query, schema: {type: string}}]
+      responses: {'200': {$ref: '#/components/responses/Envelope'}, '503': {$ref: '#/components/responses/Error}}
+  /routes/{id}:
+    get:
+      summary: 路线详情
+      parameters: [{name: id, in: path, required: true, schema: {type: string, pattern: '^[1-9][0-9]*$'}}]
+      responses: {'200': {$ref: '#/components/responses/Envelope'}, '410': {$ref: '#/components/responses/Error}}
+  /regulations/search:
+    get:
+      summary: 法规规范化字段检索
+      parameters: [{name: keyword, in: query, required: true, schema: {type: string}}, {name: limit, in: query, schema: {type: integer, maximum: 50}}, {name: cursor, in: query, schema: {type: string}}]
+      responses: {'200': {$ref: '#/components/responses/Envelope'}, '503': {$ref: '#/components/responses/Error}}
+  /regulations/{id}:
+    get:
+      summary: 法规详情与修订历史
+      parameters: [{name: id, in: path, required: true, schema: {type: string}}]
+      responses: {'200': {$ref: '#/components/responses/Envelope'}, '410': {$ref: '#/components/responses/Error}}
+  /forum/posts:
+    get:
+      summary: 公开审核通过帖子游标分页
+      parameters: [{name: board_id, in: query, schema: {type: string}}, {name: sort, in: query, schema: {type: string, enum: [latest, hot]}}, {name: limit, in: query, schema: {type: integer, maximum: 50}}, {name: cursor, in: query, schema: {type: string}}]
+      responses: {'200': {$ref: '#/components/responses/Envelope'}, '503': {$ref: '#/components/responses/Error}}
+  /telemetry/events:
+    post:
+      summary: 隐私最小化客户端埋点入库
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/TelemetryEvent'}}}
+      responses: {'200': {$ref: '#/components/responses/Envelope'}, '400': {$ref: '#/components/responses/Error}}
+  /admin/observability/metrics:
+    get:
+      summary: 管理员 API 指标快照
+      security: [{bearerAuth: []}]
+      responses: {'200': {$ref: '#/components/responses/Envelope'}, '403': {$ref: '#/components/responses/Error}}
+  /admin/maintenance/task-failures:
+    get:
+      summary: 失败任务队列
+      security: [{bearerAuth: []}]
+      responses: {'200': {$ref: '#/components/responses/Envelope'}}
+  /admin/maintenance/counters/reconcile:
+    post:
+      summary: 管理员计数对账
+      security: [{bearerAuth: []}]
+      responses: {'200': {$ref: '#/components/responses/Envelope'}, '403': {$ref: '#/components/responses/Error}}
+  /admin/feature-flags:
+    get:
+      summary: 读取 V2.0 功能开关有效值
+      security: [{bearerAuth: []}]
+      responses: {'200': {$ref: '#/components/responses/Envelope'}, '401': {$ref: '#/components/responses/Error'}}
+    patch:
+      summary: 超级管理员批量更新 V2.0 功能开关并写审计日志
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/UpdateFeatureFlags'}}}
+      responses: {'200': {$ref: '#/components/responses/Envelope'}, '400': {$ref: '#/components/responses/Error'}, '403': {$ref: '#/components/responses/Error'}}
+  /admin/regulations/batch/submit-review:
+    post:
+      summary: 批量提交法规草稿复核
+      description: 最多 100 条，先校验全部条目，再在同一事务中变更状态并逐条写管理员审计日志；任一条失败则整批回滚。
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/BatchRegulationWorkflow'}}}
+      responses: {'200': {$ref: '#/components/responses/Envelope'}, '400': {$ref: '#/components/responses/Error'}, '403': {$ref: '#/components/responses/Error'}, '409': {$ref: '#/components/responses/Error'}}
+  /admin/regulations/batch/review:
+    post:
+      summary: 批量复核通过法规修订
+      description: 仅复核员和超级管理员；最多 100 条；所有修订必须处于待复核状态，且复核人不得是任一修订的录入人。先校验整批，再在同一事务中更新并逐条写管理员审计日志，任一条失败则整批回滚。
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/BatchRegulationWorkflow'}}}
+      responses: {'200': {$ref: '#/components/responses/Envelope'}, '400': {$ref: '#/components/responses/Error'}, '403': {$ref: '#/components/responses/Error'}, '409': {$ref: '#/components/responses/Error'}}
+  /admin/regulations/batch/publish:
+    post:
+      summary: 批量发布已复核法规
+      description: 仅超级管理员；最多 100 条；每条修订必须已由另一管理员复核通过且发布字段完整，任一条失败则整批回滚并且不产生部分发布结果。
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/BatchRegulationWorkflow'}}}
+      responses: {'200': {$ref: '#/components/responses/Envelope'}, '400': {$ref: '#/components/responses/Error'}, '403': {$ref: '#/components/responses/Error'}, '409': {$ref: '#/components/responses/Error'}}
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer}
+  schemas:
+    TelemetryEvent:
+      type: object
+      required: [event_id, name, properties, occurred_at]
+      properties:
+        event_id: {type: string, minLength: 16, maxLength: 64}
+        name: {type: string}
+        properties: {type: object, maxProperties: 20}
+        occurred_at: {type: string, format: date-time}
+    UpdateFeatureFlags:
+      type: object
+      required: [route_enabled, regulation_enabled, forum_enabled, forum_write_enabled, forum_publish_mode, reason]
+      properties:
+        route_enabled: {type: boolean}
+        regulation_enabled: {type: boolean}
+        forum_enabled: {type: boolean}
+        forum_write_enabled: {type: boolean, description: 论坛关闭时必须为 false}
+        forum_publish_mode: {type: string, enum: [invite_only, gray, all]}
+        reason: {type: string, minLength: 2, maxLength: 500}
+    BatchRegulationWorkflow:
+      type: object
+      required: [ids, reason]
+      properties:
+        ids:
+          type: array
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+          items: {type: string, pattern: '^[1-9][0-9]*$'}
+        reason: {type: string, minLength: 2, maxLength: 500}
+    Envelope:
+      type: object
+      required: [code, message, data, requestId]
+      properties: {code: {type: integer}, message: {type: string}, data: {}, requestId: {type: string}}
+    Error:
+      type: object
+      properties: {code: {type: integer}, message: {type: string}, data: {nullable: true}, requestId: {type: string}}
+  responses:
+    Envelope: {description: 成功响应}
+    Error: {description: 兼容错误响应}

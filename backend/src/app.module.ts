@@ -7,12 +7,18 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { CommonModule } from './common/common.module';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
+import { RequestIdMiddleware } from './common/request/request-id.middleware';
 import { FileModule } from './file/file.module';
+import { ForumModule } from './forum/forum.module';
 import { MessageModule } from './message/message.module';
 import { RideModule } from './ride/ride.module';
 import { ReportModule } from './report/report.module';
+import { RouteModule } from './route/route.module';
+import { RegulationModule } from './regulation/regulation.module';
 import { ScheduleModule } from './schedule/schedule.module';
 import { UserModule } from './user/user.module';
+import { TelemetryModule } from './telemetry/telemetry.module';
+import { MaintenanceModule } from './maintenance/maintenance.module';
 
 @Module({
   imports: [
@@ -25,17 +31,22 @@ import { UserModule } from './user/user.module';
     UserModule,
     RideModule,
     ReportModule,
+    RouteModule,
+    RegulationModule,
+    ForumModule,
     ActivityModule,
     MessageModule,
     FileModule,
     AdminModule,
     ScheduleModule,
+    TelemetryModule,
+    MaintenanceModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
-    consumer.apply(LoggerMiddleware).forRoutes('*');
+    consumer.apply(RequestIdMiddleware, LoggerMiddleware).forRoutes('*');
   }
 }

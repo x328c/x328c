@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
+import { sanitizeLogValue } from '../common/logging/log-sanitizer';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { RedisService } from '../common/redis/redis.service';
 
@@ -57,9 +58,11 @@ export class SubscriptionMessageService {
         data: { push_status: 1 },
       });
     } catch (error) {
-      this.logger.warn(
-        `Subscription push failed for notification ${notificationId.toString()}: ${error instanceof Error ? error.message : 'unknown error'}`,
-      );
+      this.logger.warn({
+        event: 'subscription_push_failed',
+        notificationId: notificationId.toString(),
+        error: sanitizeLogValue(error),
+      });
       await this.prisma.notification
         .update({ where: { id: notificationId }, data: { push_status: 2 } })
         .catch(() => undefined);

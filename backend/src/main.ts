@@ -3,9 +3,12 @@ import { ValidationPipe } from '@nestjs/common';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformResponseInterceptor } from './common/interceptors/transform-response.interceptor';
 import { AppModule } from './app.module';
+import { StructuredLoggerService } from './common/logging/structured-logger.service';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const logger = app.get(StructuredLoggerService);
+  app.useLogger(logger);
   app.enableShutdownHooks();
 
   // 全局前缀
@@ -30,7 +33,7 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3000;
   await app.listen(port);
-  console.log(`🚀 Application is running on: http://localhost:${port}/api/v1`);
+  logger.log(`Application is running on port ${port}`, 'Bootstrap');
 }
 
 bootstrap();

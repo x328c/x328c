@@ -1,0 +1,24 @@
+@use "../../../styles/tokens" as *;
+.regulations-page { min-height: 100vh; padding-bottom: $space-6; background: $color-bg; }
+.regulations-page__hero { padding: $space-5 $space-4 $space-4; background: linear-gradient(135deg, #fff3e8, #fff); }
+.regulations-page__title { display: block; color: $color-text; font-size: 42px; font-weight: 700; }
+.regulations-page__subtitle { display: block; margin-top: $space-1; color: $color-text-secondary; font-size: 24px; }
+.regulations-page__search, .regulations-page__city { box-sizing: border-box; min-height: 72px; margin-top: $space-3; padding: 0 $space-3; border: 1px solid $color-border; border-radius: $radius-md; background: #fff; font-size: 26px; }
+.regulations-page__city { margin: $space-2 $space-4 0; display: flex; align-items: center; }
+.regulations-page__filters { padding: $space-2 $space-4 0; white-space: nowrap; }
+.regulations-page__row { display: inline-flex; gap: $space-2; }
+.regulations-page__chip { padding: 12px 22px; border: 1px solid $color-border; border-radius: 999px; background: #fff; color: $color-text-secondary; font-size: 24px; }
+.regulations-page__chip--active { border-color: $color-brand; background: $color-brand-soft; color: $color-brand-strong; }
+.regulations-page__list { padding: $space-3 $space-4; }
+.regulation-card { margin-bottom: $space-3; padding: $space-4; border-radius: $radius-lg; background: #fff; box-shadow: $shadow-card; }
+.regulation-card__top { display: flex; justify-content: space-between; align-items: center; }
+.regulation-card__status, .regulation-card__scope { font-size: 22px; }
+.regulation-card__status { padding: 6px 12px; border-radius: 999px; background: #eef8ea; color: $success; }
+.regulation-card__status--3 { background: #eee; color: $color-text-secondary; }.regulation-card__status--4 { background: #e6f4ff; color: $link; }
+.regulation-card__scope { color: $color-text-secondary; }
+.regulation-card__title { display: block; margin-top: $space-3; color: $color-text; font-size: 30px; font-weight: 650; line-height: 1.4; }
+.regulation-card__meta, .regulation-card__summary, .regulation-card__matched, .regulation-card__warning { display: block; margin-top: $space-2; color: $color-text-secondary; font-size: 23px; line-height: 1.5; }
+.regulation-card__matched { color: $link; }.regulation-card__warning { color: $warning; }
+.regulations-page__suggestions { margin: -60px $space-4 0; padding: $space-4; border-radius: $radius-md; background: #fff; }
+.regulations-page__suggestions Text, .regulations-page__end { display: block; padding: $space-1; color: $color-text-secondary; font-size: 24px; }
+.regulations-page__end { text-align: center; }

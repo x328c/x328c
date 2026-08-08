@@ -6,6 +6,7 @@ import { AdminJwtGuard } from '../admin/guards/admin-jwt.guard';
 import { AdminRolesGuard } from '../admin/guards/admin-roles.guard';
 import { AdminReportQueryDto, HandleReportDto } from './dto';
 import { ReportService } from './report.service';
+import { getRequestId } from '../common/request/request-context';
 @Controller('admin/reports')
 @UseGuards(AdminJwtGuard, AdminRolesGuard)
 @Roles(1, 9)
@@ -19,6 +20,14 @@ export class AdminReportController {
     @Param('id') id: string,
     @Body() dto: HandleReportDto,
   ) {
-    return this.reports.handle(BigInt(req.user.sub), BigInt(id), dto);
+    return this.reports.handle(
+      {
+        adminId: BigInt(req.user.sub),
+        requestId: getRequestId(req),
+        ipAddress: req.ip,
+      },
+      BigInt(id),
+      dto,
+    );
   }
 }

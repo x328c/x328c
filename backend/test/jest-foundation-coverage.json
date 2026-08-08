@@ -1,0 +1,25 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": "../src",
+  "testEnvironment": "node",
+  "testRegex": ".*\\.spec\\.ts$",
+  "transform": {
+    "^.+\\.(t|j)s$": "ts-jest"
+  },
+  "collectCoverage": true,
+  "collectCoverageFrom": [
+    "common/feature-flag/feature-flag.service.ts",
+    "common/resilience/rate-limit.service.ts",
+    "common/resilience/idempotency.service.ts",
+    "common/operation-log/operation-log.service.ts"
+  ],
+  "coverageDirectory": "../coverage/foundation",
+  "coverageThreshold": {
+    "global": {
+      "branches": 80,
+      "functions": 80,
+      "lines": 80,
+      "statements": 80
+    }
+  }
+}

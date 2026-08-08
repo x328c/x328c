@@ -7,16 +7,23 @@ import { useUserStore } from "@/stores/user-store";
 import "./app.scss";
 
 function App({ children }: PropsWithChildren) {
-  useLaunch(() => {
+  useLaunch((options) => {
     useUserStore.getState().hydrate();
     if (!useUserStore.getState().isLoggedIn) {
+      if (["pages/routes/index", "pages/forum/index", "packageRoutes/pages/detail/index", "packageRegulations/pages/index/index", "packageRegulations/pages/detail/index", "packageRegulations/pages/source/index", "packageForum/pages/detail/index"].includes(options.path)) return;
       void Taro.reLaunch({ url: "/pages/auth/index" });
       return;
     }
     void notificationService.unreadCount().then(async ({ count }) => {
       useNotificationStore.getState().setUnreadCount(count);
-      if (count > 0) await Taro.setTabBarBadge({ index: 1, text: String(count > 99 ? "99+" : count) });
-      else await Taro.removeTabBarBadge({ index: 1 });
+      if (count > 0) {
+        await Taro.setTabBarBadge({
+          index: __MESSAGE_TAB_INDEX__,
+          text: String(count > 99 ? "99+" : count),
+        });
+      } else {
+        await Taro.removeTabBarBadge({ index: __MESSAGE_TAB_INDEX__ });
+      }
     }).catch(() => undefined);
   });
 

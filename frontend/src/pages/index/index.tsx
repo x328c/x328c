@@ -66,7 +66,7 @@ export default function Index() {
           <Text>{CITY.name}</Text>
           <Text className="ride-square__arrow">⌄</Text>
         </View>
-        <View className="ride-square__filter" onClick={() => setFilterVisible(true)}>筛选</View>
+        <View className="ride-square__actions"><View className="ride-square__regulations" onClick={() => Taro.navigateTo({ url: "/packageRegulations/pages/index/index" })}>法规检索</View><View className="ride-square__filter" onClick={() => setFilterVisible(true)}>筛选</View></View>
       </View>
 
       <View className="ride-square__tabs">

@@ -1,0 +1,23 @@
+@use "../../../styles/tokens" as *;
+.regulation-detail { min-height: 100vh; padding-bottom: $space-6; background: $color-bg; }
+.regulation-detail__banner { padding: $space-3 $space-4; background: #fff8e6; color: $warning; font-size: 24px; line-height: 1.5; }
+.regulation-detail__banner--inactive { background: #eee; color: $color-text-secondary; }
+.regulation-detail__header, .regulation-detail__section, .regulation-detail__source { margin-bottom: $space-3; padding: $space-4; background: #fff; }
+.regulation-detail__source { padding: $space-3 $space-4; }
+.regulation-detail__status { display: inline-block; padding: 7px 14px; border-radius: 999px; background: #eef8ea; color: $success; font-size: 22px; }
+.regulation-detail__status--3 { background: #eee; color: $color-text-secondary; }.regulation-detail__status--4 { background: #e6f4ff; color: $link; }
+.regulation-detail__title { display: block; margin-top: $space-3; color: $color-text; font-size: 38px; font-weight: 700; line-height: 1.4; }
+.regulation-detail__meta, .regulation-detail__facts Text { display: block; margin-top: $space-2; color: $color-text-secondary; font-size: 24px; }
+.regulation-detail__facts { margin-top: $space-3; padding-top: $space-2; border-top: 1px solid $color-border; }
+.regulation-detail__heading { display: block; margin-bottom: $space-3; color: $color-text; font-size: 30px; font-weight: 650; }
+.regulation-detail__copy { color: $color-text-secondary; font-size: 26px; line-height: 1.75; white-space: pre-wrap; }.regulation-detail__content { color: $color-text; }
+.regulation-detail__revision { display: block; padding: $space-2 0; border-bottom: 1px solid $color-border; color: $color-text-secondary; font-size: 23px; }
+.regulation-detail__disclaimer { display: block; padding: 0 $space-4; color: $color-text-tertiary; font-size: 22px; line-height: 1.55; }
+.regulation-detail__feedback { min-height: 76px; margin: $space-4; display: grid; place-items: center; border: 1px solid $color-brand; border-radius: $radius-md; color: $color-brand-strong; font-size: 26px; }
+.regulation-detail__feedback-mask { position: fixed; z-index: 30; inset: 0; display: flex; align-items: flex-end; background: rgb(0 0 0 / 45%); }
+.regulation-detail__feedback-sheet { box-sizing: border-box; width: 100%; padding: $space-4 $space-4 calc($space-4 + env(safe-area-inset-bottom)); border-radius: $radius-lg $radius-lg 0 0; background: #fff; }
+.regulation-detail__feedback-title { display: block; color: $color-text; font-size: 32px; font-weight: 650; }
+.regulation-detail__feedback-hint { display: block; margin-top: $space-2; color: $color-text-secondary; font-size: 23px; line-height: 1.5; }
+.regulation-detail__feedback-input { box-sizing: border-box; width: 100%; min-height: 180px; margin-top: $space-3; padding: $space-3; border: 1px solid $color-border; border-radius: $radius-md; background: $color-bg; color: $color-text; font-size: 25px; }
+.regulation-detail__feedback-actions { display: flex; gap: $space-3; margin-top: $space-3; }.regulation-detail__feedback-actions View { min-height: 72px; display: grid; flex: 1; place-items: center; border: 1px solid $color-border; border-radius: $radius-md; color: $color-text-secondary; font-size: 25px; }
+.regulation-detail__feedback-actions .regulation-detail__feedback-submit { border-color: $action-orange; background: $action-orange; color: #fff; }

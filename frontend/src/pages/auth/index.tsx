@@ -3,6 +3,7 @@ import Taro, { useDidShow } from "@tarojs/taro";
 import { useState } from "react";
 import { loginWithWechat } from "@/services/auth";
 import { useUserStore } from "@/stores/user-store";
+import { redirectAfterLogin } from "@/utils/login-return";
 import "./index.scss";
 
 /** 独立授权页：退出后只会显示此页，绝不渲染旧用户资料。 */
@@ -12,7 +13,7 @@ export default function AuthPage() {
   useDidShow(() => {
     useUserStore.getState().hydrate();
     if (useUserStore.getState().isLoggedIn) {
-      void Taro.switchTab({ url: "/pages/index/index" });
+      void redirectAfterLogin();
     }
   });
 
@@ -21,7 +22,7 @@ export default function AuthPage() {
     setSubmitting(true);
     try {
       await loginWithWechat(userInfo);
-      await Taro.switchTab({ url: "/pages/index/index" });
+      await redirectAfterLogin();
     } catch (error) {
       Taro.showToast({
         title: error instanceof Error ? error.message : "登录失败，请重试",
@@ -55,9 +56,9 @@ export default function AuthPage() {
   return (
     <View className="auth-page">
       <View className="auth-page__content">
-        <View className="auth-page__logo">骑</View>
-        <Text className="auth-page__title">疆行机车圈</Text>
-        <Text className="auth-page__subtitle">新疆摩友的骑行圈子</Text>
+        <View className="auth-page__logo">摩</View>
+        <Text className="auth-page__title">摩搭子助手</Text>
+        <Text className="auth-page__subtitle">摩友搭子，骑行不孤单</Text>
       </View>
       <View className="auth-page__footer">
         <Button

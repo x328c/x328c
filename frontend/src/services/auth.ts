@@ -53,5 +53,5 @@ export async function logout(): Promise<void> {
     });
   });
   useNotificationStore.getState().setUnreadCount(0);
-  await Taro.removeTabBarBadge({ index: 1 }).catch(() => undefined);
+  await Taro.removeTabBarBadge({ index: __MESSAGE_TAB_INDEX__ }).catch(() => undefined);
 }

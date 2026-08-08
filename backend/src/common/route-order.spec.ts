@@ -1,0 +1,28 @@
+import { ForumController } from '../forum/forum.controller';
+import { RegulationController } from '../regulation/regulation.controller';
+import { RouteController } from '../route/route.controller';
+
+function methods(controller: object): string[] {
+  return Object.getOwnPropertyNames(controller).filter((name) => name !== 'constructor');
+}
+
+describe('V2 static route ordering', () => {
+  it('declares regulation search before the dynamic detail route', () => {
+    const names = methods(RegulationController.prototype);
+    expect(names.indexOf('search')).toBeGreaterThanOrEqual(0);
+    expect(names.indexOf('search')).toBeLessThan(names.indexOf('detail'));
+  });
+
+  it('declares forum static boards/me/posts routes before dynamic post handlers', () => {
+    const names = methods(ForumController.prototype);
+    expect(names.indexOf('boards')).toBeLessThan(names.indexOf('post'));
+    expect(names.indexOf('myPosts')).toBeLessThan(names.indexOf('post'));
+    expect(names.indexOf('myReplies')).toBeLessThan(names.indexOf('post'));
+    expect(names.indexOf('posts')).toBeLessThan(names.indexOf('post'));
+  });
+
+  it('keeps route related-rides ahead of the dynamic detail handler', () => {
+    const names = methods(RouteController.prototype);
+    expect(names.indexOf('relatedRides')).toBeLessThan(names.indexOf('detail'));
+  });
+});

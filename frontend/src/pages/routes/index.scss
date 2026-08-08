@@ -1,0 +1,20 @@
+@use "../../styles/tokens" as *;
+.routes-page { min-height: 100vh; padding-bottom: $space-6; background: $color-bg; }
+.routes-page__hero { padding: $space-5 $space-4 $space-4; background: linear-gradient(135deg, #fff3e8, #fff); }
+.routes-page__title { display: block; color: $color-text; font-size: 42px; font-weight: 700; }
+.routes-page__subtitle { display: block; margin-top: $space-1; color: $color-text-secondary; font-size: 24px; }
+.routes-page__city { height: 68px; margin-top: $space-3; padding: 0 $space-3; border: 1px solid $color-border; border-radius: $radius-md; background: #fff; font-size: 26px; }
+.routes-page__filters { padding: $space-2 $space-4 0; white-space: nowrap; }
+.routes-page__filter-row { display: inline-flex; gap: $space-2; }
+.routes-page__chip { padding: 12px 22px; border: 1px solid $color-border; border-radius: 999px; background: #fff; color: $color-text-secondary; font-size: 24px; }
+.routes-page__chip--active { border-color: $color-brand; background: $color-brand-soft; color: $color-brand-strong; }
+.routes-page__list { padding: $space-3 $space-4; }
+.route-card { display: flex; min-height: 210px; margin-bottom: $space-3; overflow: hidden; border-radius: $radius-lg; background: #fff; box-shadow: $shadow-card; }
+.route-card__cover { width: 250px; height: 210px; flex: 0 0 250px; }
+.route-card__cover--placeholder { display: grid; place-items: center; background: #f0f1f3; color: $color-text-tertiary; font-size: 24px; }
+.route-card__body { display: flex; min-width: 0; padding: $space-3; flex: 1; flex-direction: column; }
+.route-card__title { overflow: hidden; color: $color-text; font-size: 30px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.route-card__meta, .route-card__summary { display: block; margin-top: $space-1; overflow: hidden; color: $color-text-secondary; font-size: 23px; text-overflow: ellipsis; white-space: nowrap; }
+.route-card__facts { display: flex; gap: $space-3; margin-top: auto; color: $color-text; font-size: 22px; }
+.route-card__favorite { margin-left: auto; color: $color-brand-strong; }
+.routes-page__more, .routes-page__end { padding: $space-4; color: $color-text-secondary; font-size: 24px; text-align: center; }

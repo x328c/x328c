@@ -8,29 +8,37 @@ datasource db {
 }
 
 model User {
-  id                 BigInt                 @id @default(autoincrement())
-  openid             String                 @unique @db.VarChar(64)
-  unionid            String?                @db.VarChar(64)
-  nickname           String                 @db.VarChar(50)
-  avatar_url         String?                @db.VarChar(255)
-  gender             Int                    @default(0) @db.TinyInt
-  phone              String?                @unique @db.VarChar(20)
-  status             Int                    @default(1) @db.TinyInt
-  role               Int                    @default(0) @db.TinyInt
-  last_login_at      DateTime?              @db.DateTime(0)
-  created_at         DateTime               @default(now()) @db.DateTime(0)
-  updated_at         DateTime               @updatedAt @db.DateTime(0)
-  deleted_at         DateTime?              @db.DateTime(0)
-  profile            UserProfile?
-  rides              Ride[]
-  ride_entries       RideParticipant[]
-  activities         Activity[]
-  registrations      ActivityRegistration[]
-  notifications      Notification[]         @relation("notification_recipient")
-  sent_notifications Notification[]         @relation("notification_sender")
-  filed_reports      Report[]               @relation("reporter")
-  received_reports   Report[]               @relation("reported_user")
-  file_records       FileRecord[]
+  id                   BigInt                 @id @default(autoincrement())
+  openid               String                 @unique @db.VarChar(64)
+  unionid              String?                @db.VarChar(64)
+  nickname             String                 @db.VarChar(50)
+  avatar_url           String?                @db.VarChar(255)
+  gender               Int                    @default(0) @db.TinyInt
+  phone                String?                @unique @db.VarChar(20)
+  status               Int                    @default(1) @db.TinyInt
+  role                 Int                    @default(0) @db.TinyInt
+  forum_invited        Boolean                @default(false)
+  last_login_at        DateTime?              @db.DateTime(0)
+  created_at           DateTime               @default(now()) @db.DateTime(0)
+  updated_at           DateTime               @updatedAt @db.DateTime(0)
+  deleted_at           DateTime?              @db.DateTime(0)
+  profile              UserProfile?
+  rides                Ride[]
+  ride_entries         RideParticipant[]
+  activities           Activity[]
+  registrations        ActivityRegistration[]
+  notifications        Notification[]         @relation("notification_recipient")
+  sent_notifications   Notification[]         @relation("notification_sender")
+  filed_reports        Report[]               @relation("reporter")
+  received_reports     Report[]               @relation("reported_user")
+  file_records         FileRecord[]
+  route_favorites      RouteFavorite[]
+  regulation_feedbacks RegulationFeedback[]
+  forum_posts          ForumPost[]
+  forum_replies        ForumReply[]
+  forum_likes          ForumLike[]
+  forum_restrictions   UserRestriction[]
+  analytics_events     AnalyticsEvent[]
 
   @@index([unionid])
   @@index([status])
@@ -90,6 +98,7 @@ model Ride {
   user             User              @relation(fields: [user_id], references: [id])
   participants     RideParticipant[]
   reports          Report[]          @relation("reported_ride")
+  route_links      RouteRideLink[]
 
   @@index([user_id])
   @@index([departure_time])
@@ -201,43 +210,343 @@ model Notification {
 }
 
 model AdminUser {
-  id              BigInt    @id @default(autoincrement())
-  username        String    @unique @db.VarChar(50)
-  password_hash   String    @db.VarChar(255)
-  role            Int       @db.TinyInt
-  last_login_at   DateTime? @db.DateTime(0)
-  last_login_ip   String?   @db.VarChar(45)
-  created_at      DateTime  @default(now()) @db.DateTime(0)
-  updated_at      DateTime  @updatedAt @db.DateTime(0)
-  deleted_at      DateTime? @db.DateTime(0)
-  handled_reports Report[]  @relation("report_handler")
+  id                            BigInt                 @id @default(autoincrement())
+  username                      String                 @unique @db.VarChar(50)
+  password_hash                 String                 @db.VarChar(255)
+  role                          Int                    @db.TinyInt
+  last_login_at                 DateTime?              @db.DateTime(0)
+  last_login_ip                 String?                @db.VarChar(45)
+  created_at                    DateTime               @default(now()) @db.DateTime(0)
+  updated_at                    DateTime               @updatedAt @db.DateTime(0)
+  deleted_at                    DateTime?              @db.DateTime(0)
+  handled_reports               Report[]               @relation("report_handler")
+  feature_flags                 FeatureFlag[]          @relation("feature_flag_updater")
+  operation_logs                OperationLog[]
+  maintained_routes             Route[]
+  created_regulations           Regulation[]           @relation("regulation_creator")
+  created_regulation_revisions  RegulationRevision[]   @relation("regulation_revision_creator")
+  reviewed_regulation_revisions RegulationRevision[]   @relation("regulation_revision_reviewer")
+  regulation_import_tasks       RegulationImportTask[]
+  created_forum_restrictions    UserRestriction[]
+  task_failures                 TaskFailure[]          @relation("task_failure_resolver")
 
   @@map("admin_users")
 }
 
+model FeatureFlag {
+  id         BigInt     @id @default(autoincrement())
+  key        String     @unique @db.VarChar(100)
+  value      String     @db.VarChar(64)
+  updated_by BigInt?
+  created_at DateTime   @default(now()) @db.DateTime(0)
+  updated_at DateTime   @updatedAt @db.DateTime(0)
+  deleted_at DateTime?  @db.DateTime(0)
+  updater    AdminUser? @relation("feature_flag_updater", fields: [updated_by], references: [id])
+
+  @@index([deleted_at])
+  @@map("feature_flags")
+}
+
+model OperationLog {
+  id             BigInt    @id @default(autoincrement())
+  admin_id       BigInt
+  action         String    @db.VarChar(100)
+  object_type    String    @db.VarChar(50)
+  object_id      String    @db.VarChar(64)
+  before_summary Json?
+  after_summary  Json?
+  reason         String    @db.VarChar(500)
+  ip_address     String?   @db.VarChar(45)
+  request_id     String    @db.VarChar(64)
+  created_at     DateTime  @default(now()) @db.DateTime(0)
+  admin          AdminUser @relation(fields: [admin_id], references: [id])
+
+  @@index([admin_id, created_at])
+  @@index([object_type, object_id, created_at])
+  @@index([request_id])
+  @@map("operation_logs")
+}
+
+model Route {
+  id                   BigInt          @id @default(autoincrement())
+  title                String          @db.VarChar(80)
+  summary              String?         @db.VarChar(300)
+  cover_image          String?         @db.VarChar(500)
+  images               Json?
+  city_code            String?         @db.VarChar(20)
+  city_name            String?         @db.VarChar(50)
+  type                 String?         @db.VarChar(32)
+  difficulty           String?         @db.VarChar(20)
+  distance_km          Decimal?        @db.Decimal(8, 2)
+  duration_min         Int?
+  polyline             Json?
+  road_condition       String?         @db.VarChar(500)
+  suitable_motorcycles String?         @db.VarChar(200)
+  best_season          String?         @db.VarChar(100)
+  safety_notice        String?         @db.VarChar(1000)
+  status               Int             @default(0) @db.TinyInt
+  sort_weight          Int             @default(0)
+  maintainer_id        BigInt
+  favorite_count       Int             @default(0)
+  published_at         DateTime?       @db.DateTime(0)
+  offlined_at          DateTime?       @db.DateTime(0)
+  offline_reason       String?         @db.VarChar(500)
+  created_at           DateTime        @default(now()) @db.DateTime(0)
+  updated_at           DateTime        @updatedAt @db.DateTime(0)
+  deleted_at           DateTime?       @db.DateTime(0)
+  maintainer           AdminUser       @relation(fields: [maintainer_id], references: [id])
+  points               RoutePoint[]
+  favorites            RouteFavorite[]
+  ride_links           RouteRideLink[]
+
+  @@index([status, sort_weight, updated_at, id])
+  @@index([status, city_code, sort_weight, updated_at, id])
+  @@index([status, type, difficulty, sort_weight, updated_at, id])
+  @@index([maintainer_id, status, updated_at])
+  @@index([deleted_at])
+  @@map("routes")
+}
+
+model RoutePoint {
+  id          BigInt   @id @default(autoincrement())
+  route_id    BigInt
+  order       Int
+  name        String   @db.VarChar(80)
+  latitude    Decimal  @db.Decimal(10, 7)
+  longitude   Decimal  @db.Decimal(10, 7)
+  type        String   @db.VarChar(16)
+  description String?  @db.VarChar(300)
+  created_at  DateTime @default(now()) @db.DateTime(0)
+  updated_at  DateTime @updatedAt @db.DateTime(0)
+  route       Route    @relation(fields: [route_id], references: [id], onDelete: Cascade)
+
+  @@unique([route_id, order])
+  @@index([route_id, type])
+  @@map("route_points")
+}
+
+model RouteFavorite {
+  id         BigInt   @id @default(autoincrement())
+  user_id    BigInt
+  route_id   BigInt
+  created_at DateTime @default(now()) @db.DateTime(0)
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  route      Route    @relation(fields: [route_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, route_id])
+  @@index([route_id, created_at])
+  @@map("route_favorites")
+}
+
+model RouteRideLink {
+  id         BigInt   @id @default(autoincrement())
+  route_id   BigInt
+  ride_id    BigInt
+  source     String   @default("manual") @db.VarChar(32)
+  created_at DateTime @default(now()) @db.DateTime(0)
+  route      Route    @relation(fields: [route_id], references: [id], onDelete: Cascade)
+  ride       Ride     @relation(fields: [ride_id], references: [id], onDelete: Cascade)
+
+  @@unique([route_id, ride_id])
+  @@index([ride_id])
+  @@map("route_ride_links")
+}
+
+model Regulation {
+  id                        BigInt                @id @default(autoincrement())
+  title                     String                @db.VarChar(200)
+  normalized_title          String                @db.VarChar(200)
+  document_no               String?               @db.VarChar(100)
+  document_no_empty_reason  String?               @db.VarChar(200)
+  normalized_document_no    String?               @db.VarChar(100)
+  issuer                    String                @db.VarChar(150)
+  normalized_issuer         String                @db.VarChar(150)
+  authority_level           String                @db.VarChar(32)
+  category                  String                @db.VarChar(32)
+  scope                     String                @db.VarChar(16)
+  status                    Int                   @default(0) @db.TinyInt
+  source_url                String                @db.VarChar(1000)
+  published_at              DateTime?             @db.DateTime(0)
+  effective_at              DateTime?             @db.DateTime(0)
+  expired_at                DateTime?             @db.DateTime(0)
+  effective_note            String?               @db.VarChar(300)
+  last_verified_at          DateTime?             @db.DateTime(0)
+  review_cycle_days         Int                   @default(30)
+  current_revision_id       BigInt?               @unique
+  replacement_regulation_id BigInt?
+  created_by                BigInt
+  offlined_at               DateTime?             @db.DateTime(0)
+  offline_reason            String?               @db.VarChar(500)
+  created_at                DateTime              @default(now()) @db.DateTime(0)
+  updated_at                DateTime              @updatedAt @db.DateTime(0)
+  deleted_at                DateTime?             @db.DateTime(0)
+  creator                   AdminUser             @relation("regulation_creator", fields: [created_by], references: [id])
+  current_revision          RegulationRevision?   @relation("regulation_current_revision", fields: [current_revision_id], references: [id])
+  revisions                 RegulationRevision[]  @relation("regulation_revisions")
+  tag_links                 RegulationTagLink[]
+  regions                   RegulationRegion[]
+  feedbacks                 RegulationFeedback[]
+  replacement               Regulation?           @relation("regulation_replacement", fields: [replacement_regulation_id], references: [id])
+  replaced_regulations      Regulation[]          @relation("regulation_replacement")
+  import_rows               RegulationImportRow[]
+
+  @@index([status, authority_level, updated_at, id])
+  @@index([status, category, updated_at, id])
+  @@index([scope, status, updated_at, id])
+  @@index([normalized_title])
+  @@index([normalized_document_no])
+  @@index([normalized_issuer])
+  @@index([replacement_regulation_id])
+  @@index([created_by, status])
+  @@index([deleted_at])
+  @@map("regulations")
+}
+
+model RegulationRevision {
+  id              BigInt      @id @default(autoincrement())
+  regulation_id   BigInt
+  version         Int
+  summary         String      @db.VarChar(1000)
+  content         String      @db.LongText
+  source_snapshot Json
+  change_note     String      @db.VarChar(500)
+  status          Int         @default(0) @db.TinyInt
+  created_by      BigInt
+  reviewed_by     BigInt?
+  reviewed_at     DateTime?   @db.DateTime(0)
+  published_at    DateTime?   @db.DateTime(0)
+  created_at      DateTime    @default(now()) @db.DateTime(0)
+  updated_at      DateTime    @updatedAt @db.DateTime(0)
+  regulation      Regulation  @relation("regulation_revisions", fields: [regulation_id], references: [id], onDelete: Cascade)
+  current_for     Regulation? @relation("regulation_current_revision")
+  creator         AdminUser   @relation("regulation_revision_creator", fields: [created_by], references: [id])
+  reviewer        AdminUser?  @relation("regulation_revision_reviewer", fields: [reviewed_by], references: [id])
+
+  @@unique([regulation_id, version])
+  @@index([regulation_id, status, version])
+  @@index([reviewed_by, reviewed_at])
+  @@map("regulation_revisions")
+}
+
+model RegulationTag {
+  id              BigInt              @id @default(autoincrement())
+  name            String              @db.VarChar(50)
+  normalized_name String              @unique @db.VarChar(50)
+  created_at      DateTime            @default(now()) @db.DateTime(0)
+  links           RegulationTagLink[]
+
+  @@map("regulation_tags")
+}
+
+model RegulationTagLink {
+  regulation_id BigInt
+  tag_id        BigInt
+  created_at    DateTime      @default(now()) @db.DateTime(0)
+  regulation    Regulation    @relation(fields: [regulation_id], references: [id], onDelete: Cascade)
+  tag           RegulationTag @relation(fields: [tag_id], references: [id], onDelete: Cascade)
+
+  @@id([regulation_id, tag_id])
+  @@index([tag_id, regulation_id])
+  @@map("regulation_tag_links")
+}
+
+model RegulationRegion {
+  id            BigInt     @id @default(autoincrement())
+  regulation_id BigInt
+  region_code   String     @db.VarChar(20)
+  region_name   String     @db.VarChar(80)
+  created_at    DateTime   @default(now()) @db.DateTime(0)
+  regulation    Regulation @relation(fields: [regulation_id], references: [id], onDelete: Cascade)
+
+  @@unique([regulation_id, region_code])
+  @@index([region_code, regulation_id])
+  @@map("regulation_regions")
+}
+
+model RegulationFeedback {
+  id            BigInt     @id @default(autoincrement())
+  regulation_id BigInt
+  user_id       BigInt
+  type          String     @db.VarChar(32)
+  description   String?    @db.VarChar(500)
+  source_url    String?    @db.VarChar(1000)
+  status        Int        @default(0) @db.TinyInt
+  created_at    DateTime   @default(now()) @db.DateTime(0)
+  updated_at    DateTime   @updatedAt @db.DateTime(0)
+  regulation    Regulation @relation(fields: [regulation_id], references: [id])
+  user          User       @relation(fields: [user_id], references: [id])
+
+  @@index([regulation_id, status, created_at])
+  @@index([user_id, created_at])
+  @@map("regulation_feedbacks")
+}
+
+model RegulationImportTask {
+  id                BigInt                @id @default(autoincrement())
+  admin_id          BigInt
+  idempotency_key   String                @unique @db.VarChar(128)
+  file_hash         String                @db.Char(64)
+  original_filename String                @db.VarChar(255)
+  file_size         Int
+  total_rows        Int
+  valid_rows        Int
+  error_rows        Int
+  status            Int                   @default(0) @db.TinyInt
+  imported_count    Int                   @default(0)
+  confirmed_at      DateTime?             @db.DateTime(0)
+  created_at        DateTime              @default(now()) @db.DateTime(0)
+  updated_at        DateTime              @updatedAt @db.DateTime(0)
+  admin             AdminUser             @relation(fields: [admin_id], references: [id])
+  rows              RegulationImportRow[]
+
+  @@index([file_hash, admin_id])
+  @@index([admin_id, created_at])
+  @@index([status, created_at])
+  @@map("regulation_import_tasks")
+}
+
+model RegulationImportRow {
+  id             BigInt               @id @default(autoincrement())
+  task_id        BigInt
+  row_number     Int
+  normalized_key String               @db.VarChar(300)
+  payload        Json?
+  errors         Json?
+  regulation_id  BigInt?
+  created_at     DateTime             @default(now()) @db.DateTime(0)
+  task           RegulationImportTask @relation(fields: [task_id], references: [id], onDelete: Cascade)
+  regulation     Regulation?          @relation(fields: [regulation_id], references: [id])
+
+  @@unique([task_id, row_number])
+  @@index([normalized_key])
+  @@index([regulation_id])
+  @@map("regulation_import_rows")
+}
+
 model Report {
-  id               BigInt     @id @default(autoincrement())
-  reporter_user_id BigInt
-  reported_user_id BigInt?
-  ride_id          BigInt?
-  activity_id      BigInt?
-  content_type     String     @db.VarChar(20)
-  content_id       BigInt?
-  reason           Int        @db.TinyInt
-  description      String?    @db.VarChar(500)
-  evidence_images  Json?
-  status           Int        @default(0) @db.TinyInt
-  handled_by       BigInt?
-  handled_at       DateTime?  @db.DateTime(0)
-  handling_note    String?    @db.VarChar(500)
-  created_at       DateTime   @default(now()) @db.DateTime(0)
-  updated_at       DateTime   @updatedAt @db.DateTime(0)
-  deleted_at       DateTime?  @db.DateTime(0)
-  reporter         User       @relation("reporter", fields: [reporter_user_id], references: [id])
-  reported_user    User?      @relation("reported_user", fields: [reported_user_id], references: [id])
-  ride             Ride?      @relation("reported_ride", fields: [ride_id], references: [id])
-  activity         Activity?  @relation("reported_activity", fields: [activity_id], references: [id])
-  handler          AdminUser? @relation("report_handler", fields: [handled_by], references: [id])
+  id                BigInt     @id @default(autoincrement())
+  reporter_user_id  BigInt
+  reported_user_id  BigInt?
+  ride_id           BigInt?
+  activity_id       BigInt?
+  content_type      String     @db.VarChar(20)
+  content_id        BigInt?
+  reason            Int        @db.TinyInt
+  description       String?    @db.VarChar(500)
+  evidence_images   Json?
+  evidence_snapshot Json?
+  status            Int        @default(0) @db.TinyInt
+  handled_by        BigInt?
+  handled_at        DateTime?  @db.DateTime(0)
+  handling_note     String?    @db.VarChar(500)
+  created_at        DateTime   @default(now()) @db.DateTime(0)
+  updated_at        DateTime   @updatedAt @db.DateTime(0)
+  deleted_at        DateTime?  @db.DateTime(0)
+  reporter          User       @relation("reporter", fields: [reporter_user_id], references: [id])
+  reported_user     User?      @relation("reported_user", fields: [reported_user_id], references: [id])
+  ride              Ride?      @relation("reported_ride", fields: [ride_id], references: [id])
+  activity          Activity?  @relation("reported_activity", fields: [activity_id], references: [id])
+  handler           AdminUser? @relation("report_handler", fields: [handled_by], references: [id])
 
   @@index([reporter_user_id])
   @@index([reported_user_id])
@@ -258,16 +567,203 @@ model SystemSetting {
 }
 
 model FileRecord {
-  id         BigInt   @id @default(autoincrement())
-  user_id    BigInt
-  file_key   String   @unique @db.VarChar(255)
-  file_url   String   @db.VarChar(500)
-  cdn_url    String   @db.VarChar(500)
-  file_size  Int
-  file_type  String   @db.VarChar(50)
-  created_at DateTime @default(now()) @db.DateTime(0)
-  user       User     @relation(fields: [user_id], references: [id])
+  id               BigInt          @id @default(autoincrement())
+  user_id          BigInt
+  file_key         String          @unique @db.VarChar(255)
+  file_url         String          @db.VarChar(500)
+  cdn_url          String          @db.VarChar(500)
+  file_size        Int
+  file_type        String          @db.VarChar(50)
+  created_at       DateTime        @default(now()) @db.DateTime(0)
+  user             User            @relation(fields: [user_id], references: [id])
+  forum_post_image ForumPostImage?
 
   @@index([user_id, created_at])
   @@map("file_records")
+}
+
+model ForumBoard {
+  id          BigInt      @id @default(autoincrement())
+  slug        String      @unique @db.VarChar(32)
+  name        String      @db.VarChar(50)
+  description String      @db.VarChar(200)
+  sort_order  Int         @default(0)
+  status      Int         @default(1) @db.TinyInt
+  created_at  DateTime    @default(now()) @db.DateTime(0)
+  updated_at  DateTime    @updatedAt @db.DateTime(0)
+  deleted_at  DateTime?   @db.DateTime(0)
+  posts       ForumPost[]
+
+  @@index([status, sort_order, id])
+  @@index([deleted_at])
+  @@map("forum_boards")
+}
+
+model ForumPost {
+  id                         BigInt           @id @default(autoincrement())
+  board_id                   BigInt
+  user_id                    BigInt
+  title                      String           @db.VarChar(50)
+  content                    String           @db.Text
+  content_format             String           @default("plain_text") @db.VarChar(20)
+  status                     Int              @default(1) @db.TinyInt
+  moderation_status          Int              @default(0) @db.TinyInt
+  moderation_reason          String?          @db.VarChar(500)
+  moderation_attempts        Int              @default(0) @db.TinyInt
+  moderation_version         Int              @default(1)
+  moderation_next_retry_at   DateTime?        @db.DateTime(0)
+  moderation_last_error_code String?          @db.VarChar(64)
+  moderation_last_error_at   DateTime?        @db.DateTime(0)
+  manual_review_required     Boolean          @default(false)
+  idempotency_key            String           @db.VarChar(128)
+  submission_hash            String           @db.Char(64)
+  like_count                 Int              @default(0)
+  reply_count                Int              @default(0)
+  view_count                 Int              @default(0)
+  hot_score                  Decimal          @default(0) @db.Decimal(12, 4)
+  published_at               DateTime?        @db.DateTime(0)
+  offlined_at                DateTime?        @db.DateTime(0)
+  offline_reason             String?          @db.VarChar(500)
+  created_at                 DateTime         @default(now()) @db.DateTime(0)
+  updated_at                 DateTime         @updatedAt @db.DateTime(0)
+  deleted_at                 DateTime?        @db.DateTime(0)
+  board                      ForumBoard       @relation(fields: [board_id], references: [id])
+  user                       User             @relation(fields: [user_id], references: [id])
+  images                     ForumPostImage[]
+  replies                    ForumReply[]
+
+  @@unique([user_id, idempotency_key])
+  @@index([board_id, status, moderation_status, published_at, id], map: "forum_posts_public_board_idx")
+  @@index([status, moderation_status, hot_score, published_at, id], map: "forum_posts_public_hot_idx")
+  @@index([user_id, deleted_at, created_at])
+  @@index([moderation_status, manual_review_required, moderation_next_retry_at, id], map: "forum_posts_moderation_queue_idx")
+  @@index([deleted_at])
+  @@map("forum_posts")
+}
+
+model ForumPostImage {
+  id                         BigInt     @id @default(autoincrement())
+  post_id                    BigInt
+  file_record_id             BigInt     @unique
+  order                      Int
+  moderation_status          Int        @default(0) @db.TinyInt
+  moderation_reason          String?    @db.VarChar(500)
+  moderation_attempts        Int        @default(0) @db.TinyInt
+  moderation_next_retry_at   DateTime?  @db.DateTime(0)
+  moderation_last_error_code String?    @db.VarChar(64)
+  moderation_last_error_at   DateTime?  @db.DateTime(0)
+  created_at                 DateTime   @default(now()) @db.DateTime(0)
+  updated_at                 DateTime   @updatedAt @db.DateTime(0)
+  post                       ForumPost  @relation(fields: [post_id], references: [id], onDelete: Cascade)
+  file_record                FileRecord @relation(fields: [file_record_id], references: [id])
+
+  @@unique([post_id, order])
+  @@index([post_id, moderation_status])
+  @@index([moderation_status, moderation_next_retry_at, id], map: "forum_images_moderation_queue_idx")
+  @@map("forum_post_images")
+}
+
+model ForumReply {
+  id                         BigInt    @id @default(autoincrement())
+  post_id                    BigInt
+  user_id                    BigInt
+  content                    String    @db.VarChar(1000)
+  content_format             String    @default("plain_text") @db.VarChar(20)
+  status                     Int       @default(1) @db.TinyInt
+  moderation_status          Int       @default(0) @db.TinyInt
+  moderation_reason          String?   @db.VarChar(500)
+  moderation_attempts        Int       @default(0) @db.TinyInt
+  moderation_version         Int       @default(1)
+  moderation_next_retry_at   DateTime? @db.DateTime(0)
+  moderation_last_error_code String?   @db.VarChar(64)
+  moderation_last_error_at   DateTime? @db.DateTime(0)
+  manual_review_required     Boolean   @default(false)
+  idempotency_key            String    @db.VarChar(128)
+  submission_hash            String    @db.Char(64)
+  published_at               DateTime? @db.DateTime(0)
+  offlined_at                DateTime? @db.DateTime(0)
+  offline_reason             String?   @db.VarChar(500)
+  created_at                 DateTime  @default(now()) @db.DateTime(0)
+  updated_at                 DateTime  @updatedAt @db.DateTime(0)
+  deleted_at                 DateTime? @db.DateTime(0)
+  post                       ForumPost @relation(fields: [post_id], references: [id])
+  user                       User      @relation(fields: [user_id], references: [id])
+
+  @@unique([user_id, idempotency_key])
+  @@index([post_id, status, moderation_status, published_at, id], map: "forum_replies_public_idx")
+  @@index([user_id, deleted_at, created_at])
+  @@index([moderation_status, manual_review_required, moderation_next_retry_at, id], map: "forum_replies_moderation_queue_idx")
+  @@index([deleted_at])
+  @@map("forum_replies")
+}
+
+model ForumLike {
+  id          BigInt   @id @default(autoincrement())
+  user_id     BigInt
+  target_type String   @db.VarChar(20)
+  target_id   BigInt
+  created_at  DateTime @default(now()) @db.DateTime(0)
+  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, target_type, target_id])
+  @@index([target_type, target_id, created_at])
+  @@map("forum_likes")
+}
+
+model UserRestriction {
+  id         BigInt    @id @default(autoincrement())
+  user_id    BigInt
+  type       String    @db.VarChar(32)
+  reason     String    @db.VarChar(500)
+  starts_at  DateTime  @db.DateTime(0)
+  ends_at    DateTime  @db.DateTime(0)
+  created_by BigInt
+  created_at DateTime  @default(now()) @db.DateTime(0)
+  updated_at DateTime  @updatedAt @db.DateTime(0)
+  deleted_at DateTime? @db.DateTime(0)
+  user       User      @relation(fields: [user_id], references: [id])
+  creator    AdminUser @relation(fields: [created_by], references: [id])
+
+  @@index([user_id, type, starts_at, ends_at, deleted_at])
+  @@index([created_by, created_at])
+  @@map("user_restrictions")
+}
+
+model AnalyticsEvent {
+  id          BigInt   @id @default(autoincrement())
+  event_id    String   @unique @db.VarChar(64)
+  name        String   @db.VarChar(64)
+  user_id     BigInt?
+  properties  Json
+  occurred_at DateTime @db.DateTime(0)
+  created_at  DateTime @default(now()) @db.DateTime(0)
+  user        User?    @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@index([name, created_at])
+  @@index([user_id, created_at])
+  @@map("analytics_events")
+}
+
+model TaskFailure {
+  id                 BigInt     @id @default(autoincrement())
+  fingerprint        String     @unique @db.VarChar(128)
+  task_key           String     @db.VarChar(100)
+  status             Int        @default(0) @db.TinyInt
+  attempts           Int        @default(1)
+  last_error_code    String?    @db.VarChar(64)
+  last_error_summary String?    @db.VarChar(500)
+  payload_summary    Json?
+  first_failed_at    DateTime   @default(now()) @db.DateTime(0)
+  last_failed_at     DateTime   @default(now()) @db.DateTime(0)
+  next_retry_at      DateTime?  @db.DateTime(0)
+  resolved_by        BigInt?
+  resolved_at        DateTime?  @db.DateTime(0)
+  resolution_note    String?    @db.VarChar(500)
+  created_at         DateTime   @default(now()) @db.DateTime(0)
+  updated_at         DateTime   @updatedAt @db.DateTime(0)
+  resolver           AdminUser? @relation("task_failure_resolver", fields: [resolved_by], references: [id])
+
+  @@index([status, next_retry_at, last_failed_at])
+  @@index([task_key, status, updated_at])
+  @@map("task_failures")
 }

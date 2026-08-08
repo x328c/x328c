@@ -1,8 +1,10 @@
+@use "../../styles/tokens" as tokens;
+
 .auth-page {
   min-height: 100vh;
   box-sizing: border-box;
   padding: 180rpx 64rpx 72rpx;
-  background: #f7f8fa;
+  background: tokens.$canvas;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -20,23 +22,23 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #1e6fff;
-    color: #fff;
+    background: tokens.$brand-orange;
+    color: tokens.$ink-900;
     font-size: 64rpx;
     font-weight: 700;
-    box-shadow: 0 16rpx 32rpx rgba(30, 111, 255, 0.2);
+    box-shadow: 0 16rpx 32rpx rgba(255, 106, 0, 0.2);
   }
 
   &__title {
     margin-top: 44rpx;
-    color: #1f2937;
+    color: tokens.$ink-900;
     font-size: 48rpx;
     font-weight: 700;
   }
 
   &__subtitle {
     margin-top: 18rpx;
-    color: #8a94a6;
+    color: tokens.$ink-600;
     font-size: 28rpx;
   }
 
@@ -46,8 +48,8 @@
     line-height: 96rpx;
     border: 0;
     border-radius: 48rpx;
-    background: #1e6fff;
-    color: #fff;
+    background: tokens.$action-orange;
+    color: tokens.$surface;
     font-size: 32rpx;
     font-weight: 600;
 
@@ -57,7 +59,7 @@
   &__agreement {
     display: block;
     margin-top: 28rpx;
-    color: #a0a7b4;
+    color: tokens.$ink-400;
     font-size: 22rpx;
     text-align: center;
   }

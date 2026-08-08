@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { cms } from 'tencentcloud-sdk-nodejs-cms';
 import { AppException } from '../exceptions/app.exception';
+import { sanitizeLogValue } from '../logging/log-sanitizer';
 
 @Injectable()
 export class ContentSecurityService {
@@ -27,10 +28,7 @@ export class ContentSecurityService {
       }
     } catch (error) {
       if (error instanceof AppException) throw error;
-      this.logger.error(
-        'Tencent CMS text moderation failed',
-        error instanceof Error ? error.stack : undefined,
-      );
+      this.logger.error({ event: 'content_security_failed', error: sanitizeLogValue(error) });
       throw new AppException(9001, '内容安全检测服务暂不可用');
     }
   }

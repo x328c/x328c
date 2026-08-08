@@ -1,0 +1,34 @@
+{
+  "generated_on": "2026-08-03",
+  "template": "docs/V2.0文档/S3法规CSV模板.csv",
+  "row_count": 2,
+  "csv_bytes": 277826,
+  "rows": [
+    {
+      "source_file": "中华人民共和国道路交通安全法（主席令第8号）.pdf",
+      "source_sha256": "72e0a7f33f99aefe1a7702807183c7fc1f9033aa80d7ecdd52cea91808619501",
+      "pages": 45,
+      "content_characters": 16269,
+      "title": "中华人民共和国道路交通安全法（主席令第8号公布文本）",
+      "document_no": "中华人民共和国主席令第八号",
+      "scope": "NATIONAL",
+      "source_url": "https://gat.xinjiang.gov.cn/gat/flfg/201712/5ab1a15b470646018052b74ede4b46fe.shtml",
+      "warnings": [
+        "源文件为2003年主席令第8号公布文本；国家法律法规数据库显示后续存在修正，发布前须核对现行文本与历史沿革。"
+      ]
+    },
+    {
+      "source_file": "关于印发《自治区道路交通违法行为行政处罚裁量权基准适用规则》《自治区道路交通违法行为行政处罚裁量权基准》的通知-20260508202156407.pdf",
+      "source_sha256": "044f1c2efdb4afaf2734e9a4f4b2998d3c3067d9c07dba1ee0732dc6611ee2a6",
+      "pages": 44,
+      "content_characters": 87839,
+      "title": "关于印发《自治区道路交通违法行为行政处罚裁量权基准适用规则》《自治区道路交通违法行为行政处罚裁量权基准》的通知",
+      "document_no": "新公规〔2025〕1号",
+      "scope": "REGIONAL",
+      "source_url": "https://gat.xinjiang.gov.cn/gat/gawj/202503/3936ce139b084a9082a72c5bb554942d.shtml",
+      "warnings": [
+        "自2025年4月15日起施行，有效期五年；具体失效日发布前由复核管理员依据官方口径确认。"
+      ]
+    }
+  ]
+}

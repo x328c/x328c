@@ -1,7 +1,20 @@
+@use "./styles/tokens" as tokens;
 @import "@nutui/nutui-react-taro/dist/style.css";
 
 page {
   min-height: 100%;
-  background: #f7f8fa;
-  color: #1f2937;
+  background: tokens.$canvas;
+  color: tokens.$ink-900;
+  --modazi-brand-orange: #{tokens.$brand-orange};
+  --modazi-action-orange: #{tokens.$action-orange};
+  --modazi-ink-900: #{tokens.$ink-900};
+  --modazi-ink-600: #{tokens.$ink-600};
+  --modazi-ink-400: #{tokens.$ink-400};
+  --modazi-surface: #{tokens.$surface};
+  --modazi-canvas: #{tokens.$canvas};
+  --modazi-border: #{tokens.$border};
+  --modazi-success: #{tokens.$success};
+  --modazi-warning: #{tokens.$warning};
+  --modazi-danger: #{tokens.$danger};
+  --modazi-link: #{tokens.$link};
 }

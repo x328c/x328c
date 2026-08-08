@@ -9,6 +9,6 @@ import { ReportService } from './report.service';
 export class ReportController {
   constructor(private readonly reports: ReportService) {}
   @Post() create(@Req() req: Request & { user: JwtPayload }, @Body() dto: CreateReportDto) {
-    return this.reports.create(BigInt(req.user.sub), dto);
+    return this.reports.create(BigInt(req.user.sub), req.ip ?? '', dto);
   }
 }
