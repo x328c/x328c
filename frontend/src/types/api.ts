@@ -43,6 +43,7 @@ export interface RideSummary {
   distance?: number | null;
   creator: RideCreator;
   participant_avatars: string[];
+  route?: RouteLinkSummary | null;
 }
 
 export interface RideDetail extends RideSummary {
@@ -94,13 +95,16 @@ export interface CreateRidePayload {
   description?: string;
   rules?: Record<string, unknown>;
   city_code: string;
+  route_id?: string;
+  route_link_source?: "route_detail" | "create_form";
+  agreement?: AgreementProof;
 }
 
 export interface ActivitySummary {
   id: string; title: string; cover_image?: string | null; activity_type: number;
   start_time: string; end_time: string; meetup_address: string; max_people: number;
   register_count: number; is_full: boolean; fee_type: number; fee_amount?: string | null;
-  status: number; city_code: string; creator: RideCreator; registration_avatars: string[];
+  status: number; city_code: string; creator: RideCreator; registration_avatars: string[]; route?: RouteLinkSummary | null;
 }
 export interface ActivityDetail extends ActivitySummary {
   route_description?: string | null; requirements?: string | null; content?: string | null;
@@ -113,6 +117,17 @@ export interface CreateActivityPayload {
   meetup_address: string; meetup_lat: number | undefined; meetup_lng: number | undefined; max_people: number; fee_type: number;
   fee_amount?: number; requirements?: string; route_description?: string; content: string;
   contact_name: string; contact_wechat: string; need_approval: boolean; city_code: string;
+  route_id?: string; route_link_source?: "route_detail" | "create_form"; agreement?: AgreementProof;
+}
+export interface AgreementProof { id: string; version: string; content_hash: string }
+export interface SafetyAgreement extends AgreementProof {
+  code: string; title: string; content: string; scene: "ride_create" | "ride_join" | "activity_create" | "activity_register";
+  effective_at?: string | null; last_legal_reviewed_at?: string | null;
+}
+export interface RouteLinkSummary {
+  id: string; title: string; city_code?: string | null; city_name?: string | null;
+  difficulty?: string | null; distance_km?: string | null; start_name?: string | null;
+  end_name?: string | null; available: boolean;
 }
 export interface NotificationItem { id: string; type: number; title: string; content: string; related_type?: "ride" | "activity" | null; related_id?: string | null; is_read: boolean; unread_dot: boolean; created_at: string; }
 export interface NotificationListResponse { list: NotificationItem[]; pagination: Pagination; }
@@ -138,6 +153,37 @@ export interface RouteDetail extends RouteSummary {
 }
 export interface RouteListResponse { items: RouteSummary[]; nextCursor: string | null; hasMore: boolean }
 export interface RelatedRideListResponse { items: RideSummary[] }
+export interface RouteComment {
+  id: string; content: string; images: string[]; status: "PUBLISHED" | "DELETED";
+  rejection_reason?: string | null; offline_reason?: string | null; published_at?: string | null;
+  created_at: string; author: { id: string; nickname: string; avatar_url?: string | null };
+}
+export interface CursorResult<T> { items: T[]; nextCursor: string | null; hasMore: boolean }
+export interface UserRouteWaypoint { name: string; latitude: number; longitude: number }
+export interface UserRoute {
+  id: string; user_id: string; title: string; description?: string | null;
+  start_location: string; start_lat: number; start_lng: number; end_location?: string | null;
+  end_lat?: number | null; end_lng?: number | null; waypoints: UserRouteWaypoint[];
+  total_distance?: number | null; estimated_time?: number | null; difficulty?: number | null;
+  images: string[]; visibility: 1 | 2; view_count: number; favorite_count: number;
+  created_at: string; updated_at: string; is_owner: boolean; is_favorited: boolean;
+  creator: { id: string; nickname: string; avatar_url?: string | null };
+}
+export interface UserRoutePayload {
+  title: string; description?: string; start_location: string; start_lat: number; start_lng: number;
+  end_location?: string; end_lat?: number; end_lng?: number; waypoints?: UserRouteWaypoint[];
+  total_distance?: number; estimated_time?: number; difficulty?: number; images?: string[]; visibility: 1 | 2;
+}
+export interface SafetyGuide {
+  code: string; title: string; summary: string; version: string; content: Record<string, unknown>;
+  contentHash: string; publishedAt?: string | null; lastVerifiedAt?: string | null; stale: boolean;
+  source: { title: string; url: string; issuer: string; publishedAt?: string | null; effectiveAt?: string | null };
+  notice: string;
+}
+export interface UserSettings {
+  profile_visibility: "public" | "participants" | "private"; contact_visible: boolean;
+  ride_notifications: boolean; activity_notifications: boolean; system_notifications: boolean;
+}
 export type RegulationStatus = 2 | 3 | 4;
 export interface RegulationSummary {
   id: string; title: string; document_no?: string | null; document_no_empty_reason?: string | null;

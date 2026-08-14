@@ -1,6 +1,11 @@
 import { Module } from '@nestjs/common';
 import { ActivityController } from './activity.controller';
 import { ActivityService } from './activity.service';
+import { SafetyModule } from '../safety/safety.module';
 
-@Module({ controllers: [ActivityController], providers: [ActivityService] })
+@Module({
+  imports: [SafetyModule],
+  controllers: [ActivityController],
+  providers: [ActivityService],
+})
 export class ActivityModule {}

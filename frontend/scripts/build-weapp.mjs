@@ -40,8 +40,8 @@ const appConfig = JSON.parse(readFileSync(appJsonPath, "utf8"));
 const tabItems = appConfig.tabBar?.list ?? [];
 const expectedCount = Number(tabVariant);
 const expectedTexts = tabVariant === "5"
-  ? ["约骑", "路线", "论坛", "消息", "我的"]
-  : ["约骑", "路线", "消息", "我的"];
+  ? ["同行助手", "路线", "论坛", "助手通知", "我的"]
+  : ["同行助手", "路线", "助手通知", "我的"];
 
 if (tabItems.length !== expectedCount) {
   throw new Error(`Tab 构建校验失败：期望 ${expectedCount} 项，实际 ${tabItems.length} 项`);

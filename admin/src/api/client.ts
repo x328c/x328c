@@ -3,7 +3,9 @@ import { message } from 'antd';
 import type { ApiEnvelope } from '../types';
 import { useAuthStore } from '../stores/auth-store';
 
-export const client = axios.create({ baseURL: 'http://localhost:3000/api/v1', timeout: 15_000 });
+const API_BASE = import.meta.env.VITE_API_BASE_URL
+  || (import.meta.env.DEV ? 'http://localhost:3000/api/v1' : '/api/v1');
+export const client = axios.create({ baseURL: API_BASE.replace(/\/+$/, ''), timeout: 15_000 });
 client.interceptors.request.use((config) => {
   const token = useAuthStore.getState().token || localStorage.getItem('jiangxing_admin_token');
   if (token) config.headers.Authorization = `Bearer ${token}`;

@@ -85,6 +85,7 @@ export default function RoutesPage() {
     <View className="routes-page__hero">
       <Text className="routes-page__title">本城路线</Text>
       <Text className="routes-page__subtitle">按路线起点城市发现运营精选路线</Text>
+      <View className="routes-page__user-actions"><Text onClick={() => Taro.navigateTo({ url: "/pages/routes/square/index" })}>路线广场</Text><Text onClick={() => Taro.navigateTo({ url: "/pages/routes/mine/index" })}>我的路线</Text><Text onClick={() => Taro.navigateTo({ url: "/pages/routes/create/index" })}>+ 录入路线</Text></View>
       <Input className="routes-page__city" value={cityCode} maxlength={20} placeholder="输入城市码筛选，例如 330100" onInput={(event) => setCityCode(event.detail.value)} onConfirm={() => changeFilter({ city_code: cityCode.trim() || undefined })} />
     </View>
     <ScrollView scrollX className="routes-page__filters"><View className="routes-page__filter-row">
@@ -94,7 +95,7 @@ export default function RoutesPage() {
       {difficulties.map((item) => <Text key={item.value ?? "all"} className={query.difficulty === item.value ? "routes-page__chip routes-page__chip--active" : "routes-page__chip"} onClick={() => changeFilter({ difficulty: item.value })}>{item.label}</Text>)}
     </View></ScrollView>
     {state === "loading" ? <StatePanel type="loading" title="正在加载精选路线" /> : null}
-    {state === "disabled" ? <StatePanel type="disabled" title="路线功能暂未开放" description="约骑功能仍可正常使用" actionText="返回约骑" onAction={() => Taro.switchTab({ url: "/pages/index/index" })} /> : null}
+    {state === "disabled" ? <StatePanel type="disabled" title="路线功能暂未开放" description="同行功能仍可正常使用" actionText="返回同行" onAction={() => Taro.switchTab({ url: "/pages/index/index" })} /> : null}
     {state === "error" ? <StatePanel type="error" actionText="重新加载" onAction={() => void load(query)} /> : null}
     {state === "ready" && !items.length ? <StatePanel type="empty" title="没有匹配路线" description="换个城市或筛选条件试试" actionText="清除筛选" onAction={clearFilters} /> : null}
     {state === "ready" && items.length ? <View className="routes-page__list">

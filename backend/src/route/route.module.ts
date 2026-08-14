@@ -7,11 +7,29 @@ import { OptionalJwtAuthGuard } from './guards/optional-jwt-auth.guard';
 import { RouteCacheService } from './route-cache.service';
 import { RouteController } from './route.controller';
 import { RouteService } from './route.service';
+import { RouteCommentService } from './route-comment.service';
+import { RouteCommentController } from './route-comment.controller';
+import { AdminRouteCommentController } from './admin-route-comment.controller';
+import { UserRouteController } from './user-route.controller';
+import { UserRouteService } from './user-route.service';
 
 @Module({
   imports: [AuthModule, AdminModule],
-  controllers: [RouteController, AdminRouteController],
-  providers: [RouteService, AdminRouteService, RouteCacheService, OptionalJwtAuthGuard],
+  controllers: [
+    RouteController,
+    AdminRouteController,
+    RouteCommentController,
+    AdminRouteCommentController,
+    UserRouteController,
+  ],
+  providers: [
+    RouteService,
+    AdminRouteService,
+    RouteCacheService,
+    RouteCommentService,
+    UserRouteService,
+    OptionalJwtAuthGuard,
+  ],
   exports: [RouteService, AdminRouteService],
 })
 export class RouteModule {}

@@ -1,1 +1,1 @@
-export default definePageConfig({ navigationBarTitleText: "法规检索", enablePullDownRefresh: true });
+export default definePageConfig({ navigationBarTitleText: "骑行安全手册", enablePullDownRefresh: true });

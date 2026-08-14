@@ -47,7 +47,13 @@ export class FileService {
     const region = this.config.getOrThrow<string>('COS_REGION');
     const expected = this.originUrl(dto.file_key, bucket, region);
     if (dto.file_url !== expected) throw new AppException(1001, '文件地址与存储路径不匹配');
-    if (dto.file_key.startsWith('forum/')) await this.verifyForumImage(dto.file_url, dto.file_type);
+    if (
+      dto.file_key.startsWith('forum/') ||
+      dto.file_key.startsWith('route-comments/') ||
+      dto.file_key.startsWith('user-routes/')
+    ) {
+      await this.verifyUploadedImage(dto.file_url, dto.file_type);
+    }
     const cdnUrl = this.cdnUrl(dto.file_key);
     const record = await this.prisma.fileRecord.upsert({
       where: { file_key: dto.file_key },
@@ -122,7 +128,7 @@ export class FileService {
   }
   private ownsKey(key: string, userId: bigint) {
     return new RegExp(
-      `^(rides|activities|avatars|forum)/\\d{4}/\\d{2}/\\d{2}/${userId.toString()}/[a-f0-9-]+\\.(jpg|png|webp)$`,
+      `^(rides|activities|avatars|forum|route-comments|user-routes)/\\d{4}/\\d{2}/\\d{2}/${userId.toString()}/[a-f0-9-]+\\.(jpg|png|webp)$`,
     ).test(key);
   }
   private originUrl(key: string, bucket: string, region: string) {
@@ -136,7 +142,7 @@ export class FileService {
     return `https://${domain}/${key}`;
   }
 
-  private async verifyForumImage(url: string, expectedMime: string): Promise<void> {
+  private async verifyUploadedImage(url: string, expectedMime: string): Promise<void> {
     let bytes: Buffer;
     try {
       const response = await axios.get<ArrayBuffer>(url, {

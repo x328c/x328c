@@ -4,9 +4,9 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AuthController } from '../src/auth/auth.controller';
 import { AuthService } from '../src/auth/auth.service';
+import { LOGIN_LEGAL_DOCUMENTS } from '../src/auth/legal-documents.constants';
 import { JwtAuthGuard } from '../src/auth/guards/jwt-auth.guard';
 import { HttpExceptionFilter } from '../src/common/filters/http-exception.filter';
-import { ContentSecurityService } from '../src/common/content-security/content-security.service';
 import { TransformResponseInterceptor } from '../src/common/interceptors/transform-response.interceptor';
 import { PrismaService } from '../src/common/prisma/prisma.service';
 import { RedisService } from '../src/common/redis/redis.service';
@@ -81,7 +81,6 @@ describeDatabase('V1 login -> ride -> join -> notification smoke (e2e)', () => {
             geoRemove: jest.fn().mockResolvedValue(1),
           },
         },
-        { provide: ContentSecurityService, useValue: { checkText: jest.fn() } },
         { provide: SubscriptionMessageService, useValue: { push: jest.fn() } },
       ],
     })
@@ -114,7 +113,17 @@ describeDatabase('V1 login -> ride -> join -> notification smoke (e2e)', () => {
   it('keeps V1 login contract and persists join notification', async () => {
     const login = await request(app.getHttpServer())
       .post('/api/v1/auth/wx-login')
-      .send({ code: 'test-code', nickname: 'V1 发起人' })
+      .send({
+        code: 'test-code',
+        nickname: 'V1 发起人',
+        legal_consent: {
+          accepted: true,
+          bundle_version: LOGIN_LEGAL_DOCUMENTS.bundleVersion,
+          user_agreement_hash: LOGIN_LEGAL_DOCUMENTS.userAgreementHash,
+          privacy_policy_hash: LOGIN_LEGAL_DOCUMENTS.privacyPolicyHash,
+          safety_notice_hash: LOGIN_LEGAL_DOCUMENTS.safetyNoticeHash,
+        },
+      })
       .expect(200);
     expect(login.body.data.access_token).toBe('test-access-token');
 

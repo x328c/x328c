@@ -25,10 +25,6 @@ services:
       ADMIN_JWT_EXPIRES_IN: ${ADMIN_JWT_EXPIRES_IN}
       WECHAT_APP_ID: ${WECHAT_APP_ID}
       WECHAT_APP_SECRET: ${WECHAT_APP_SECRET}
-      CONTENT_SECURITY_ENABLED: ${CONTENT_SECURITY_ENABLED}
-      TENCENT_SECRET_ID: ${TENCENT_SECRET_ID}
-      TENCENT_SECRET_KEY: ${TENCENT_SECRET_KEY}
-      TENCENT_CMS_REGION: ${TENCENT_CMS_REGION}
       COS_SECRET_ID: ${COS_SECRET_ID}
       COS_SECRET_KEY: ${COS_SECRET_KEY}
       COS_BUCKET: ${COS_BUCKET}
@@ -57,6 +53,31 @@ services:
       start_period: 45s
     restart: unless-stopped
     init: true
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: local
+      options:
+        max-size: 20m
+        max-file: "5"
+
+  admin:
+    build:
+      context: ../../admin
+      dockerfile: Dockerfile
+    image: jiangxing-admin:local
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+      - /tmp
     security_opt:
       - no-new-privileges:true
     logging:
@@ -115,15 +136,19 @@ services:
         max-file: "5"
 
   nginx:
-    # 对外唯一入口；启用 HTTPS 后在此服务上增加 443 端口与证书挂载。
+    # 对外唯一入口；证书由宿主机 /etc/nginx/ssl 只读挂载。
     image: nginx:1.27-alpine
     depends_on:
       app:
         condition: service_healthy
+      admin:
+        condition: service_healthy
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - /etc/nginx/ssl:/etc/nginx/ssl:ro
     read_only: true
     tmpfs:
       - /var/cache/nginx

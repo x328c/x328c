@@ -34,17 +34,20 @@ export const rideService = {
       method: "GET",
     });
   },
-  create(payload: CreateRidePayload) {
+  create(payload: CreateRidePayload, idempotencyKey?: string) {
     return request<RideSummary>({
       url: `${API_BASE}/rides`,
       method: "POST",
       data: payload,
+      headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined,
     });
   },
-  join(id: string) {
+  join(id: string, agreement?: CreateRidePayload["agreement"], idempotencyKey?: string) {
     return request<void>({
       url: `${API_BASE}/rides/${id}/join`,
       method: "POST",
+      data: agreement ? { agreement } : {},
+      headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined,
     });
   },
   leave(id: string) {

@@ -1,0 +1,16 @@
+@use "../../../styles/tokens" as *;
+
+.legal-document {
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding: $space-4 $space-4 calc($space-6 + env(safe-area-inset-bottom));
+  background: #fff;
+  color: $color-text;
+
+  &__title, &__heading, &__paragraph, &__bullet, &__footer { display: block; }
+  &__title { margin: $space-2 0 $space-4; font-size: 38px; font-weight: 700; text-align: center; }
+  &__heading { margin: $space-5 0 $space-2; font-size: 30px; font-weight: 700; }
+  &__paragraph, &__bullet { margin-top: $space-2; font-size: 26px; line-height: 1.75; text-align: justify; }
+  &__bullet { padding-left: $space-2; }
+  &__footer { margin-top: $space-6; padding-top: $space-3; border-top: 1px solid $color-border; color: $color-text-secondary; font-size: 22px; text-align: center; }
+}

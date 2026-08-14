@@ -7,7 +7,9 @@ type RouteEvent =
   | "route_filter"
   | "route_detail_view"
   | "route_favorite"
-  | "route_related_rides_click";
+  | "route_related_rides_click"
+  | "route_create_companion_click"
+  | "route_create_activity_click";
 
 export function trackRouteEvent(event: RouteEvent, data: Record<string, string | number | boolean> = {}): void {
   trackEvent(event, data);
@@ -19,7 +21,7 @@ function trackEvent(event: EventName, data: Record<string, string | number | boo
   try {
     Taro.reportAnalytics(event, data);
   } catch {
-    // 埋点不可阻断路线浏览或约骑转化主流程。
+    // 埋点不可阻断路线浏览或同行转化主流程。
   }
   const eventId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
   void request({
@@ -29,7 +31,7 @@ function trackEvent(event: EventName, data: Record<string, string | number | boo
   }).catch(() => undefined);
 }
 
-type RegulationEvent = "regulation_module_exposure" | "regulation_search" | "regulation_result_click" | "regulation_source_open" | "regulation_feedback";
+type RegulationEvent = "regulation_module_exposure" | "regulation_search" | "regulation_result_click" | "regulation_source_open" | "regulation_feedback" | "safety_guide_accident_open" | "safety_guide_source_click";
 export function trackRegulationEvent(event: RegulationEvent, data: Record<string, string | number | boolean> = {}): void {
   trackEvent(event, data);
 }

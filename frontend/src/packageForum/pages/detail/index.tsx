@@ -64,7 +64,7 @@ export default function ForumDetailPage() {
   const deleteReply = async (item: ForumReply) => { const confirm = await Taro.showModal({ title: "删除回复", content: "删除后无法恢复，确定继续？" }); if (!confirm.confirm) return; await forumService.deleteReply(item.id); setReplies((current) => current.filter((replyItem) => replyItem.id !== item.id)); };
 
   if (state === "loading") return <View className="forum-detail"><StatePanel type="loading" title="正在加载帖子" /></View>;
-  if (state === "disabled") return <View className="forum-detail"><StatePanel type="disabled" title="论坛功能已关闭" description="约骑与路线不受影响" actionText="返回约骑" onAction={() => Taro.switchTab({ url: "/pages/index/index" })} /></View>;
+  if (state === "disabled") return <View className="forum-detail"><StatePanel type="disabled" title="论坛功能已关闭" description="同行与路线不受影响" actionText="返回同行" onAction={() => Taro.switchTab({ url: "/pages/index/index" })} /></View>;
   if (state === "offline") return <View className="forum-detail"><StatePanel type="disabled" title="帖子已失效或下架" description="后台处置后不会继续展示缓存内容" actionText="返回论坛" onAction={() => Taro.navigateBack()} /></View>;
   if (state === "pending") return <View className="forum-detail"><StatePanel type="pending" title="帖子正在审核中" description="文字和图片全部通过前不会公开" actionText="查看我的发布" onAction={() => Taro.redirectTo({ url: "/packageForum/pages/my/index" })} /></View>;
   if (state === "rejected") return <View className="forum-detail"><StatePanel type="unauthorized" title="帖子审核未通过" description="请从我的发布查看原因并修改" actionText="查看我的发布" onAction={() => Taro.redirectTo({ url: "/packageForum/pages/my/index" })} /></View>;

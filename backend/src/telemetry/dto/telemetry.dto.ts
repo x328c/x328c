@@ -12,6 +12,8 @@ export const TELEMETRY_EVENT_NAMES = [
   'regulation_result_click',
   'regulation_source_open',
   'regulation_feedback',
+  'safety_guide_accident_open',
+  'safety_guide_source_click',
   'forum_module_exposure',
   'forum_post_view',
   'forum_post_submit',

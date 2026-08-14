@@ -26,6 +26,12 @@ export const userService = {
       method: "PUT",
       data,
     }),
+  closeAccount: () =>
+    request<{ success: true }>({
+      url: `${API_BASE}/users/account`,
+      method: "DELETE",
+      data: { confirmed: true },
+    }),
   publicProfile: (id: string) =>
     request<PublicUserProfile>({
       url: `${API_BASE}/users/${id}`,

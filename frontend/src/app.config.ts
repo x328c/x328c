@@ -3,9 +3,9 @@ const includeForumTab = process.env.TARO_APP_TAB_VARIANT === "5";
 const tabBarList = [
   {
     pagePath: "pages/index/index",
-    text: "约骑",
-    iconPath: "assets/tabbar/ride.png",
-    selectedIconPath: "assets/tabbar/ride-selected.png",
+    text: "同行助手",
+    iconPath: "assets/tabbar/ride-v21.png",
+    selectedIconPath: "assets/tabbar/ride-v21-selected.png",
   },
   {
     pagePath: "pages/routes/index",
@@ -25,7 +25,7 @@ const tabBarList = [
     : []),
   {
     pagePath: "pages/messages/index",
-    text: "消息",
+    text: "助手通知",
     iconPath: "assets/tabbar/messages.png",
     selectedIconPath: "assets/tabbar/messages-selected.png",
   },
@@ -42,6 +42,10 @@ export default defineAppConfig({
     "pages/auth/index",
     "pages/index/index",
     "pages/routes/index",
+    "pages/routes/create/index",
+    "pages/routes/mine/index",
+    "pages/routes/detail/index",
+    "pages/routes/square/index",
     ...(includeForumTab ? ["pages/forum/index"] : []),
     "pages/rides/create/index",
     "pages/rides/detail/index",
@@ -60,15 +64,19 @@ export default defineAppConfig({
   subPackages: [
     {
       root: "packageRoutes",
-      pages: ["pages/detail/index"],
+      pages: ["pages/detail/index", "pages/select/index"],
     },
     {
       root: "packageRegulations",
-      pages: ["pages/index/index", "pages/detail/index", "pages/source/index"],
+      pages: ["pages/index/index", "pages/detail/index", "pages/source/index", "pages/accident-guide/index"],
     },
     {
       root: "packageForum",
       pages: ["pages/detail/index", "pages/create/index", "pages/my/index"],
+    },
+    {
+      root: "packageLegal",
+      pages: ["pages/document/index"],
     },
   ],
   window: {

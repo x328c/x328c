@@ -1,3 +1,3 @@
 export default definePageConfig({
-  navigationBarTitleText: "发起约骑",
+  navigationBarTitleText: "发起同行",
 });

@@ -66,11 +66,11 @@ export default function Index() {
           <Text>{CITY.name}</Text>
           <Text className="ride-square__arrow">⌄</Text>
         </View>
-        <View className="ride-square__actions"><View className="ride-square__regulations" onClick={() => Taro.navigateTo({ url: "/packageRegulations/pages/index/index" })}>法规检索</View><View className="ride-square__filter" onClick={() => setFilterVisible(true)}>筛选</View></View>
+        <View className="ride-square__actions"><View className="ride-square__regulations" onClick={() => Taro.navigateTo({ url: "/packageRegulations/pages/index/index" })}>骑行安全手册</View><View className="ride-square__filter" onClick={() => setFilterVisible(true)}>筛选</View></View>
       </View>
 
       <View className="ride-square__tabs">
-        <View className="ride-square__tab ride-square__tab--active">约骑</View>
+        <View className="ride-square__tab ride-square__tab--active">同行助手</View>
         <View className="ride-square__tab" onClick={() => Taro.navigateTo({ url: "/pages/activities/index" })}>活动</View>
       </View>
 
@@ -84,7 +84,7 @@ export default function Index() {
             <RideCard key={ride.id} ride={ride} onClick={() => Taro.navigateTo({ url: `/pages/rides/detail/index?id=${ride.id}` })} />
           ))
         ) : (
-          <Empty text="附近暂时没有约骑" actionText="刷新试试" onAction={() => void loadRides(1, true)} />
+          <Empty text="附近暂时没有同行" actionText="刷新试试" onAction={() => void loadRides(1, true)} />
         )}
         {rides.length > 0 && (
           <Text className="ride-square__more">{loading ? "加载中…" : rides.length >= pagination.total ? "没有更多了" : "上拉加载更多"}</Text>

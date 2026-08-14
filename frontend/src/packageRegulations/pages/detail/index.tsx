@@ -43,8 +43,8 @@ export default function RegulationDetailPage() {
     finally { setSubmittingFeedback(false); }
   };
   if (state === "loading") return <View className="regulation-detail"><StatePanel type="loading" title="正在加载法规" /></View>;
-  if (state === "disabled") return <View className="regulation-detail"><StatePanel type="disabled" title="法规检索暂未开放" description="路线与约骑不受影响" actionText="返回约骑" onAction={() => Taro.switchTab({ url: "/pages/index/index" })} /></View>;
-  if (state === "offline") return <View className="regulation-detail"><StatePanel type="offline" title="该法规条目已下架" description="来源字段仍保留，公开索引已停止展示正文" actionText="返回法规检索" onAction={() => Taro.navigateBack()} /></View>;
+  if (state === "disabled") return <View className="regulation-detail"><StatePanel type="disabled" title="骑行安全手册暂未开放" description="路线与同行不受影响" actionText="返回同行" onAction={() => Taro.switchTab({ url: "/pages/index/index" })} /></View>;
+  if (state === "offline") return <View className="regulation-detail"><StatePanel type="offline" title="该法规条目已下架" description="来源字段仍保留，公开索引已停止展示正文" actionText="返回骑行安全手册" onAction={() => Taro.navigateBack()} /></View>;
   if (state === "error" || !item) return <View className="regulation-detail"><StatePanel type="error" actionText="重新加载" onAction={() => void load(id)} /></View>;
   return <View className="regulation-detail">
     {item.status !== 2 ? <View className="regulation-detail__banner regulation-detail__banner--inactive">{item.status === 3 ? "该条目已失效" : "该条目已被替代"}{item.replacement ? `，替代文件：${item.replacement.title}` : "，请核对最新官方文件"}</View> : null}

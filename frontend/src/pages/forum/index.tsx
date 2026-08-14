@@ -64,7 +64,7 @@ export default function ForumPage() {
   };
 
   if (state === "loading") return <View className="forum-page"><StatePanel type="loading" title="正在加载论坛" /></View>;
-  if (state === "disabled") return <View className="forum-page"><StatePanel type="disabled" title="论坛暂未开放" description="资质或服务开关未满足，约骑与路线仍可正常使用" actionText="返回约骑" onAction={() => Taro.switchTab({ url: "/pages/index/index" })} /></View>;
+  if (state === "disabled") return <View className="forum-page"><StatePanel type="disabled" title="论坛暂未开放" description="资质或服务开关未满足，同行与路线仍可正常使用" actionText="返回同行" onAction={() => Taro.switchTab({ url: "/pages/index/index" })} /></View>;
   if (state === "offline") return <View className="forum-page"><StatePanel type="offline" title="网络连接较弱" description="未加载任何可能过期的论坛内容" actionText="重新加载" onAction={() => void load(boardId, sort)} /></View>;
   return <View className="forum-page">
     <View className="forum-page__hero"><View><Text className="forum-page__title">骑友论坛</Text><Text className="forum-page__subtitle">文明交流，所有公开内容均经过审核</Text></View><View className="forum-page__mine" onClick={() => useUserStore.getState().isLoggedIn ? void Taro.navigateTo({ url: "/packageForum/pages/my/index" }) : void openLogin("/pages/forum/index")}>我的发布</View></View>

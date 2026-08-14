@@ -5,6 +5,7 @@ import {
   IsIn,
   IsInt,
   IsNumber,
+  IsNumberString,
   IsOptional,
   IsString,
   IsUrl,
@@ -12,8 +13,9 @@ import {
   Max,
   Min,
 } from 'class-validator';
+import { OptionalAgreementDto } from '../../safety/dto/agreement.dto';
 
-export class CreateActivityDto {
+export class CreateActivityDto extends OptionalAgreementDto {
   @IsString() @Length(1, 80) title!: string;
   @IsOptional() @IsUrl({ require_tld: false }) @Length(1, 255) cover_image?: string;
   @Type(() => Number) @IsInt() @IsIn([1, 2, 3, 4]) activity_type!: number;
@@ -32,4 +34,7 @@ export class CreateActivityDto {
   @IsString() @Length(1, 50) contact_wechat!: string;
   @Type(() => Boolean) @IsBoolean() need_approval!: boolean;
   @IsString() @Length(1, 20) city_code!: string;
+  @IsOptional() @IsNumberString({ no_symbols: true }) @Length(1, 32) route_id?: string;
+  @IsOptional() @IsIn(['route_detail', 'create_form']) route_link_source?:
+    'route_detail' | 'create_form';
 }

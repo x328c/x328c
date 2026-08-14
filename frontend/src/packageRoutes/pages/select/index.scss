@@ -1,0 +1,5 @@
+@use "../../../styles/tokens" as *;
+.route-select { min-height: 100vh; padding: $space-4; background: $color-bg; }
+.route-select__hint { display: block; margin-bottom: $space-3; color: $color-text-secondary; font-size: 24px; }
+.route-select__item { margin-bottom: $space-3; padding: $space-4; border-radius: $radius-md; background: #fff; box-shadow: $shadow-card; color: $color-text-secondary; font-size: 23px; }
+.route-select__title { display: block; margin-bottom: $space-2; color: $color-text; font-size: 29px; font-weight: 650; }

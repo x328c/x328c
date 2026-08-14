@@ -1,12 +1,12 @@
 import { ArrowDownOutlined, ArrowUpOutlined, EditOutlined, EyeOutlined, PlusOutlined, RocketOutlined, StopOutlined } from '@ant-design/icons';
-import { Alert, Button, Descriptions, Form, Image, Input, InputNumber, Modal, Select, Space, Table, Tag, Typography, message } from 'antd';
+import { Alert, Button, Card, Descriptions, Form, Image, Input, InputNumber, Modal, Select, Space, Table, Tag, Typography, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import axios from 'axios';
 import dayjs from 'dayjs';
 import { useCallback, useEffect, useState } from 'react';
 import { adminApi } from '../api/admin';
 import { useAuthStore } from '../stores/auth-store';
-import type { RouteItem, RoutePayload, RoutePointInput, RouteStatus } from '../types';
+import type { RouteCommentAdminItem, RouteItem, RoutePayload, RoutePointInput, RouteStatus } from '../types';
 
 const statusMap: Record<RouteStatus, { text: string; color: string }> = {
   0: { text: '草稿', color: 'default' }, 1: { text: '已发布', color: 'green' }, 2: { text: '已下架', color: 'red' },
@@ -18,7 +18,6 @@ const typeOptions = [
 const difficultyOptions = [
   { value: 'easy', label: '轻松' }, { value: 'moderate', label: '适中' }, { value: 'hard', label: '挑战' },
 ];
-
 type RouteFormValues = Omit<RoutePayload, 'images' | 'polyline' | 'related_ride_ids' | 'points'> & {
   images_text?: string; polyline_text?: string; related_ride_ids_text?: string; points?: RoutePointInput[];
 };
@@ -114,6 +113,9 @@ export function RoutesPage() {
   const [disabled, setDisabled] = useState(false);
   const [editing, setEditing] = useState<RouteItem | null>();
   const [preview, setPreview] = useState<RouteItem>();
+  const [comments, setComments] = useState<RouteCommentAdminItem[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentReportOrder, setCommentReportOrder] = useState<'asc' | 'desc'>('desc');
   const role = useAuthStore((state) => state.admin?.role);
 
   const load = useCallback(async (next = 1) => {
@@ -127,6 +129,32 @@ export function RoutesPage() {
   }, [filterForm]);
 
   useEffect(() => { void load(1); }, [load]);
+
+  const loadComments = useCallback(async () => {
+    setCommentsLoading(true);
+    try {
+      const result = await adminApi.routeComments({ page: 1, pageSize: 100, report_order: commentReportOrder });
+      setComments(result.list);
+    } finally { setCommentsLoading(false); }
+  }, [commentReportOrder]);
+
+  useEffect(() => { void loadComments(); }, [loadComments]);
+
+  const removeComment = (item: RouteCommentAdminItem) => {
+    let reason = '';
+    Modal.confirm({
+      title: '确认删除该路线评论？',
+      content: <Input.TextArea rows={3} maxLength={500} showCount placeholder="请输入删除原因（必填）" onChange={(event) => { reason = event.target.value; }} />,
+      okText: '确认删除',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        if (reason.trim().length < 2) { message.error('请填写至少 2 个字的删除原因'); throw new Error('delete reason required'); }
+        await adminApi.deleteRouteComment(item.id, reason.trim());
+        message.success('评论已删除');
+        await loadComments();
+      },
+    });
+  };
 
   const openEditor = (route?: RouteItem) => {
     setEditing(route ?? null);
@@ -180,18 +208,32 @@ export function RoutesPage() {
     </Space> },
   ];
 
-  if (disabled) return <Alert type="warning" showIcon message="路线功能已关闭" description="服务端 route.enabled 当前为 false；约骑等 V1 管理功能不受影响。" />;
-
   return <>
-    <Form form={filterForm} layout="inline" className="filter-bar" onFinish={() => void load(1)}>
-      <Form.Item name="keyword"><Input allowClear placeholder="路线名 / 城市" /></Form.Item>
-      <Form.Item name="status"><Select allowClear placeholder="全部状态" style={{ width: 120 }} options={Object.entries(statusMap).map(([value, item]) => ({ value: Number(value), label: item.text }))} /></Form.Item>
-      <Form.Item name="city_code"><Input allowClear placeholder="城市码" /></Form.Item>
-      <Button type="primary" htmlType="submit">查询</Button>
-      <Button onClick={() => { filterForm.resetFields(); void load(1); }}>重置</Button>
-      <Button type="primary" icon={<PlusOutlined />} onClick={() => openEditor()}>新建草稿</Button>
-    </Form>
-    <Table className="page-card" rowKey="id" loading={loading} columns={columns} dataSource={items} scroll={{ x: 1100 }} pagination={{ current: page, pageSize: 20, total, onChange: (next) => void load(next) }} />
+    {disabled ? <Alert className="page-card" type="warning" showIcon message="路线发布功能已关闭" description="服务端 route.enabled 当前为 false；评论治理仍可在下方继续使用。" /> : <>
+      <Form form={filterForm} layout="inline" className="filter-bar" onFinish={() => void load(1)}>
+        <Form.Item name="keyword"><Input allowClear placeholder="路线名 / 城市" /></Form.Item>
+        <Form.Item name="status"><Select allowClear placeholder="全部状态" style={{ width: 120 }} options={Object.entries(statusMap).map(([value, item]) => ({ value: Number(value), label: item.text }))} /></Form.Item>
+        <Form.Item name="city_code"><Input allowClear placeholder="城市码" /></Form.Item>
+        <Button type="primary" htmlType="submit">查询</Button>
+        <Button onClick={() => { filterForm.resetFields(); void load(1); }}>重置</Button>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => openEditor()}>新建草稿</Button>
+      </Form>
+      <Table className="page-card" rowKey="id" loading={loading} columns={columns} dataSource={items} scroll={{ x: 1100 }} pagination={{ current: page, pageSize: 20, total, onChange: (next) => void load(next) }} />
+    </>}
+    <Card className="page-card" title="路线评论管理" extra={<Button onClick={() => void loadComments()}>刷新评论</Button>}>
+      <Typography.Paragraph type="secondary">评论提交后立即公开，不设强制审核。用户可举报评论，管理员核实后可直接删除；删除原因会写入审计日志。</Typography.Paragraph>
+      <Space style={{ marginBottom: 16 }}><Typography.Text>排序</Typography.Text><Select value={commentReportOrder} onChange={setCommentReportOrder} style={{ width: 170 }} options={[{ value: 'desc', label: '举报次数从高到低' }, { value: 'asc', label: '举报次数从低到高' }]} /></Space>
+      <Table loading={commentsLoading} rowKey="id" dataSource={comments} pagination={{ pageSize: 20 }} columns={[
+        { title: '路线', dataIndex: ['route', 'title'], ellipsis: true },
+        { title: '作者', dataIndex: ['author', 'nickname'], width: 140 },
+        { title: '评论内容', dataIndex: 'content', ellipsis: true },
+        { title: '图片', dataIndex: 'images', width: 150, render: (images: string[]) => images?.length ? <Image.PreviewGroup>{images.map((src) => <Image key={src} width={48} height={48} style={{ marginRight: 6, objectFit: 'cover' }} src={src} />)}</Image.PreviewGroup> : '-' },
+        { title: '举报次数', dataIndex: 'report_count', width: 100, sorter: (a: RouteCommentAdminItem, b: RouteCommentAdminItem) => a.report_count - b.report_count },
+        { title: '最近举报', dataIndex: 'reported_at', width: 170, render: (value?: string | null) => value ? dayjs(value).format('YYYY-MM-DD HH:mm') : '-' },
+        { title: '提交时间', dataIndex: 'created_at', width: 170, render: (value: string) => dayjs(value).format('YYYY-MM-DD HH:mm') },
+        { title: '操作', width: 100, render: (_, item: RouteCommentAdminItem) => <Button type="link" danger onClick={() => removeComment(item)}>删除</Button> },
+      ]} />
+    </Card>
     <Modal open={editing !== undefined} width={1000} title={editing ? `编辑路线：${editing.title}` : '创建路线草稿'} okText="保存草稿" onCancel={() => { setEditing(undefined); editorForm.resetFields(); }} onOk={() => void save()} destroyOnHidden>
       {editing?.status === 1 ? <Alert className="route-editor__alert" type="warning" showIcon message="编辑已发布路线后会自动转为草稿，必须重新发布。" /> : null}
       <Form form={editorForm} layout="vertical" initialValues={toForm()}>

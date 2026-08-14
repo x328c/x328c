@@ -57,11 +57,6 @@ ADMIN_JWT_EXPIRES_IN=8h
 WECHAT_APP_ID=your-wechat-appid
 WECHAT_APP_SECRET=your-wechat-secret
 
-CONTENT_SECURITY_ENABLED=false
-TENCENT_SECRET_ID=your-tencent-secret-id
-TENCENT_SECRET_KEY=your-tencent-secret-key
-TENCENT_CMS_REGION=ap-guangzhou
-
 COS_SECRET_ID=your-cos-secret-id
 COS_SECRET_KEY=your-cos-secret-key
 COS_BUCKET=your-cos-bucket

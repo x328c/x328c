@@ -54,4 +54,23 @@ describe('FileService forum image verification', () => {
       }),
     ).rejects.toThrow('文件头');
   });
+
+  it('accepts a verified route-comment image owned by the current user', async () => {
+    const routeCommentKey =
+      'route-comments/2026/08/12/1/' + '123e4567-e89b-12d3-a456-426614174001.png';
+    const routeCommentUrl = `https://bucket.cos.ap-guangzhou.myqcloud.com/${routeCommentKey}`;
+    const bytes = Buffer.alloc(24);
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]).copy(bytes);
+    bytes.writeUInt32BE(1200, 16);
+    bytes.writeUInt32BE(900, 20);
+    jest.spyOn(axios, 'get').mockResolvedValue({ data: bytes } as never);
+    await expect(
+      service.recordUpload(1n, {
+        file_key: routeCommentKey,
+        file_url: routeCommentUrl,
+        file_size: 2000,
+        file_type: 'image/png',
+      }),
+    ).resolves.toMatchObject({ id: '1' });
+  });
 });

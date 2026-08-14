@@ -17,6 +17,11 @@ export const MANAGED_FEATURE_FLAG_KEYS = [
   'forum.enabled',
   'forum.write_enabled',
   'forum.publish_mode',
+  'route.link_enabled',
+  'route.comment_enabled',
+  'route.comment_read_enabled',
+  'safety_guide.enabled',
+  'safety_agreement.enforced',
 ] as const satisfies readonly FeatureFlagKey[];
 
 type ManagedValues = Pick<FeatureFlagValues, (typeof MANAGED_FEATURE_FLAG_KEYS)[number]>;
@@ -42,6 +47,13 @@ export class AdminFeatureFlagService {
     if (dto.forum_write_enabled && !dto.forum_enabled) {
       throw new AppException(40001, '论坛总开关关闭时不能开启论坛写入', HttpStatus.BAD_REQUEST);
     }
+    if (dto.route_comment_enabled && !dto.route_comment_read_enabled) {
+      throw new AppException(
+        40001,
+        '路线评论写入开启时必须同时开启公开读取',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
 
     const after = this.fromDto(dto);
     await this.prisma.$transaction(async (tx) => {
@@ -65,7 +77,7 @@ export class AdminFeatureFlagService {
         ...actor,
         action: 'feature_flags.update',
         objectType: 'feature_flags',
-        objectId: 'v2',
+        objectId: 'v2.1',
         reason: dto.reason,
         beforeSummary: before,
         afterSummary: after,
@@ -83,6 +95,11 @@ export class AdminFeatureFlagService {
       'forum.enabled': dto.forum_enabled,
       'forum.write_enabled': dto.forum_write_enabled,
       'forum.publish_mode': dto.forum_publish_mode,
+      'route.link_enabled': dto.route_link_enabled,
+      'route.comment_enabled': dto.route_comment_enabled,
+      'route.comment_read_enabled': dto.route_comment_read_enabled,
+      'safety_guide.enabled': dto.safety_guide_enabled,
+      'safety_agreement.enforced': dto.safety_agreement_enforced,
     };
   }
 
@@ -93,6 +110,11 @@ export class AdminFeatureFlagService {
       forum_enabled: values['forum.enabled'],
       forum_write_enabled: values['forum.write_enabled'],
       forum_publish_mode: values['forum.publish_mode'],
+      route_link_enabled: values['route.link_enabled'],
+      route_comment_enabled: values['route.comment_enabled'],
+      route_comment_read_enabled: values['route.comment_read_enabled'],
+      safety_guide_enabled: values['safety_guide.enabled'],
+      safety_agreement_enforced: values['safety_agreement.enforced'],
     };
   }
 

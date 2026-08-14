@@ -1,5 +1,6 @@
 import { defineConfig, type UserConfigExport } from '@tarojs/cli'
 import { resolve } from 'path'
+import legalManifest from '../../backend/src/auth/legal-documents.manifest.json'
 
 import devConfig from './dev'
 import prodConfig from './prod'
@@ -27,6 +28,12 @@ export default defineConfig<'vite'>(async (merge) => {
     ],
     defineConstants: {
       __MESSAGE_TAB_INDEX__: JSON.stringify(tabVariant === '5' ? 3 : 2),
+      __TAB_VARIANT__: JSON.stringify(tabVariant),
+      // 前后端从同一清单读取，避免文档更新后登录请求摘要不一致。
+      __LEGAL_BUNDLE_VERSION__: JSON.stringify(legalManifest.bundleVersion),
+      __USER_AGREEMENT_HASH__: JSON.stringify(legalManifest.userAgreementHash),
+      __PRIVACY_POLICY_HASH__: JSON.stringify(legalManifest.privacyPolicyHash),
+      __SAFETY_NOTICE_HASH__: JSON.stringify(legalManifest.safetyNoticeHash),
       __RIDE_REMINDER_TEMPLATE_ID__: JSON.stringify(
         process.env.TARO_APP_RIDE_REMINDER_TEMPLATE_ID ?? '',
       ),

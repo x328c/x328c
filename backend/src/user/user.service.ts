@@ -1,5 +1,5 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
 import { PrismaService } from '../common/prisma/prisma.service';
@@ -54,7 +54,17 @@ export class UserService {
   async getPublicProfile(viewerId: bigint, userId: bigint) {
     const user = await this.findActiveUser(userId);
     const profile = user.profile;
-    const canViewWechat = await this.canViewWechat(viewerId, userId, profile?.wechat_visible ?? 0);
+    const setting = await this.prisma.userSetting.findUnique({ where: { user_id: userId } });
+    const visibility = setting?.profile_visibility ?? 'public';
+    const isOwner = viewerId === userId;
+    const needsRelationship = visibility === 'participants' || Boolean(setting?.contact_visible);
+    const sharesActivity =
+      isOwner || (needsRelationship && (await this.hasSharedParticipation(viewerId, userId)));
+    if (!isOwner && visibility === 'private')
+      throw new AppException(2003, '该用户已隐藏个人资料', HttpStatus.FORBIDDEN);
+    if (!isOwner && visibility === 'participants' && !sharesActivity)
+      throw new AppException(2003, '仅共同同行或活动参与者可查看', HttpStatus.FORBIDDEN);
+    const canViewWechat = isOwner || Boolean(setting?.contact_visible && sharesActivity);
     const canViewLocation = profile?.location_visible === 2;
 
     return {
@@ -129,6 +139,76 @@ export class UserService {
     };
   }
 
+  async closeAccount(userId: bigint, confirmed: true) {
+    if (!confirmed) throw new AppException(2004, '请确认注销账号', HttpStatus.BAD_REQUEST);
+    const user = await this.findActiveUser(userId);
+    const now = new Date();
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          openid: `deleted:${userId.toString()}:${randomUUID().slice(0, 16)}`,
+          unionid: null,
+          nickname: '已注销用户',
+          avatar_url: null,
+          gender: 0,
+          phone: null,
+          status: 0,
+          last_login_at: null,
+          deleted_at: now,
+        },
+      });
+      await tx.userProfile.updateMany({
+        where: { user_id: userId },
+        data: {
+          motorcycle_model: null,
+          riding_years: null,
+          riding_styles: Prisma.DbNull,
+          province: null,
+          city: null,
+          district: null,
+          city_code: null,
+          location_lat: null,
+          location_lng: null,
+          location_offset_seed: null,
+          location_visible: 0,
+          bio: null,
+          wechat_id: null,
+          wechat_visible: 0,
+          deleted_at: now,
+        },
+      });
+      await tx.userSetting.deleteMany({ where: { user_id: userId } });
+      await tx.routeComment.updateMany({
+        where: { user_id: userId, deleted_at: null },
+        data: { deleted_at: now, published_at: null },
+      });
+      await tx.forumPost.updateMany({
+        where: { user_id: userId, deleted_at: null },
+        data: { deleted_at: now, published_at: null },
+      });
+      await tx.forumReply.updateMany({
+        where: { user_id: userId, deleted_at: null },
+        data: { deleted_at: now, published_at: null },
+      });
+      await tx.activityRegistration.updateMany({
+        where: { user_id: userId },
+        data: { real_name: null, phone: null, emergency_contact: null, remark: null },
+      });
+      await tx.appFeedback.updateMany({
+        where: { user_id: userId },
+        data: { user_id: null },
+      });
+      await tx.notification.deleteMany({ where: { user_id: userId } });
+    });
+    if (user.profile?.city_code) {
+      await this.redisService
+        .geoRemove(`geo:users:${user.profile.city_code}`, userId.toString())
+        .catch(() => undefined);
+    }
+    return { success: true };
+  }
+
   private async findActiveUser(userId: bigint): Promise<ProfileRecord> {
     const user = await this.prisma.user.findFirst({
       where: { id: userId, deleted_at: null, status: 1 },
@@ -167,20 +247,38 @@ export class UserService {
     };
   }
 
-  private async canViewWechat(
-    viewerId: bigint,
-    ownerId: bigint,
-    visibility: number,
-  ): Promise<boolean> {
-    if (viewerId === ownerId) return true;
-    if (visibility === 2) return true;
-    if (visibility !== 1) return false;
-    return Boolean(
-      await this.prisma.rideParticipant.findFirst({
-        where: { user_id: viewerId, status: 1, ride: { user_id: ownerId, deleted_at: null } },
+  private async hasSharedParticipation(viewerId: bigint, ownerId: bigint): Promise<boolean> {
+    const [ride, activity] = await Promise.all([
+      this.prisma.ride.findFirst({
+        where: {
+          deleted_at: null,
+          OR: [
+            { user_id: ownerId, participants: { some: { user_id: viewerId, status: 1 } } },
+            { user_id: viewerId, participants: { some: { user_id: ownerId, status: 1 } } },
+            {
+              participants: { some: { user_id: ownerId, status: 1 } },
+              AND: { participants: { some: { user_id: viewerId, status: 1 } } },
+            },
+          ],
+        },
         select: { id: true },
       }),
-    );
+      this.prisma.activity.findFirst({
+        where: {
+          deleted_at: null,
+          OR: [
+            { user_id: ownerId, registrations: { some: { user_id: viewerId, status: 2 } } },
+            { user_id: viewerId, registrations: { some: { user_id: ownerId, status: 2 } } },
+            {
+              registrations: { some: { user_id: ownerId, status: 2 } },
+              AND: { registrations: { some: { user_id: viewerId, status: 2 } } },
+            },
+          ],
+        },
+        select: { id: true },
+      }),
+    ]);
+    return Boolean(ride || activity);
   }
 
   private createLocationSeed(userId: bigint, date: string): string {

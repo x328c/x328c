@@ -1,4 +1,4 @@
-import { ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ExecutionContext, Injectable } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Observable } from 'rxjs';
 
@@ -12,8 +12,9 @@ export class OptionalJwtAuthGuard extends AuthGuard('jwt') {
     return super.canActivate(context);
   }
 
-  handleRequest<TUser>(err: unknown, user: TUser, info: unknown): TUser {
-    if (err || info || !user) throw err ?? new UnauthorizedException('无效的访问令牌');
-    return user;
+  handleRequest<TUser>(_err: unknown, user: TUser): TUser | undefined {
+    // 公开路线允许匿名访问。残留的过期令牌不应把公开接口变成 401；
+    // 有效令牌仍会注入 request.user 以返回收藏等个性化状态。
+    return user || undefined;
   }
 }

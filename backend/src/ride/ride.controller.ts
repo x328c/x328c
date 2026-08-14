@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Param, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Param,
+  Post,
+  Put,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { Request } from 'express';
 import { JwtPayload } from '../auth/entity/auth-token.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -12,6 +23,9 @@ import {
   UpdateRideDto,
 } from './dto';
 import { RideService } from './ride.service';
+import { getRequestId } from '../common/request/request-context';
+import { OptionalAgreementDto } from '../safety/dto/agreement.dto';
+import { EntityIdParamDto } from '../common/dto/entity-id-param.dto';
 
 @Controller('rides')
 export class RideController {
@@ -29,52 +43,72 @@ export class RideController {
   }
   @Get(':id/participants')
   @UseGuards(JwtAuthGuard)
-  participants(@Param('id') id: string, @Query() query: ParticipantQueryDto) {
-    return this.rideService.participants(BigInt(id), query);
+  participants(@Param() params: EntityIdParamDto, @Query() query: ParticipantQueryDto) {
+    return this.rideService.participants(BigInt(params.id), query);
   }
   @Post()
   @UseGuards(JwtAuthGuard)
-  create(@Req() request: Request & { user: JwtPayload }, @Body() dto: CreateRideDto) {
-    return this.rideService.create(BigInt(request.user.sub), dto);
+  create(
+    @Req() request: Request & { user: JwtPayload },
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Body() dto: CreateRideDto,
+  ) {
+    return this.rideService.create(
+      BigInt(request.user.sub),
+      dto,
+      getRequestId(request),
+      idempotencyKey,
+    );
   }
   @Put(':id')
   @UseGuards(JwtAuthGuard)
   update(
     @Req() request: Request & { user: JwtPayload },
-    @Param('id') id: string,
+    @Param() params: EntityIdParamDto,
     @Body() dto: UpdateRideDto,
   ) {
-    return this.rideService.update(BigInt(request.user.sub), BigInt(id), dto);
+    return this.rideService.update(BigInt(request.user.sub), BigInt(params.id), dto);
   }
   @Post(':id/cancel')
   @UseGuards(JwtAuthGuard)
-  cancel(@Req() request: Request & { user: JwtPayload }, @Param('id') id: string) {
-    return this.rideService.cancel(BigInt(request.user.sub), BigInt(id));
+  cancel(@Req() request: Request & { user: JwtPayload }, @Param() params: EntityIdParamDto) {
+    return this.rideService.cancel(BigInt(request.user.sub), BigInt(params.id));
   }
   @Post(':id/join')
   @UseGuards(JwtAuthGuard)
-  join(@Req() request: Request & { user: JwtPayload }, @Param('id') id: string) {
-    return this.rideService.join(BigInt(request.user.sub), BigInt(id));
+  join(
+    @Req() request: Request & { user: JwtPayload },
+    @Param() params: EntityIdParamDto,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Body() dto: OptionalAgreementDto,
+  ) {
+    return this.rideService.join(
+      BigInt(request.user.sub),
+      BigInt(params.id),
+      dto,
+      getRequestId(request),
+      idempotencyKey,
+    );
   }
   @Post(':id/leave')
   @UseGuards(JwtAuthGuard)
-  leave(@Req() request: Request & { user: JwtPayload }, @Param('id') id: string) {
-    return this.rideService.leave(BigInt(request.user.sub), BigInt(id));
+  leave(@Req() request: Request & { user: JwtPayload }, @Param() params: EntityIdParamDto) {
+    return this.rideService.leave(BigInt(request.user.sub), BigInt(params.id));
   }
   @Post(':id/remove-participant')
   @UseGuards(JwtAuthGuard)
   removeParticipant(
     @Req() request: Request & { user: JwtPayload },
-    @Param('id') id: string,
+    @Param() params: EntityIdParamDto,
     @Body() dto: RemoveParticipantDto,
   ) {
     return this.rideService.removeParticipant(
       BigInt(request.user.sub),
-      BigInt(id),
+      BigInt(params.id),
       BigInt(dto.user_id),
     );
   }
-  @Get(':id') detail(@Param('id') id: string) {
-    return this.rideService.detail(BigInt(id));
+  @Get(':id') detail(@Param() params: EntityIdParamDto) {
+    return this.rideService.detail(BigInt(params.id));
   }
 }

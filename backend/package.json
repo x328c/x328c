@@ -45,7 +45,6 @@
     "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1",
-    "tencentcloud-sdk-nodejs-cms": "^4.1.71",
     "tencentcloud-sdk-nodejs-sts": "^4.1.100"
   },
   "devDependencies": {

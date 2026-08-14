@@ -1,6 +1,8 @@
 import { ForumController } from '../forum/forum.controller';
 import { RegulationController } from '../regulation/regulation.controller';
 import { RouteController } from '../route/route.controller';
+import { RouteCommentController } from '../route/route-comment.controller';
+import { SafetyAgreementController } from '../safety/safety-agreement.controller';
 
 function methods(controller: object): string[] {
   return Object.getOwnPropertyNames(controller).filter((name) => name !== 'constructor');
@@ -11,6 +13,13 @@ describe('V2 static route ordering', () => {
     const names = methods(RegulationController.prototype);
     expect(names.indexOf('search')).toBeGreaterThanOrEqual(0);
     expect(names.indexOf('search')).toBeLessThan(names.indexOf('detail'));
+  });
+
+  it('keeps V2.1 static mine and active routes explicit', () => {
+    expect(methods(RouteCommentController.prototype).indexOf('mine')).toBeGreaterThanOrEqual(0);
+    expect(methods(SafetyAgreementController.prototype).indexOf('active')).toBeGreaterThanOrEqual(
+      0,
+    );
   });
 
   it('declares forum static boards/me/posts routes before dynamic post handlers', () => {

@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
-import { ContentSecurityModule } from './content-security/content-security.module';
 import { StructuredLoggerService } from './logging/structured-logger.service';
 import { FeatureFlagModule } from './feature-flag/feature-flag.module';
 import { ResilienceModule } from './resilience/resilience.module';
@@ -13,7 +12,6 @@ import { TaskFailureModule } from './task-failure/task-failure.module';
   imports: [
     PrismaModule,
     RedisModule,
-    ContentSecurityModule,
     FeatureFlagModule,
     ResilienceModule,
     OperationLogModule,
@@ -24,7 +22,6 @@ import { TaskFailureModule } from './task-failure/task-failure.module';
   exports: [
     PrismaModule,
     RedisModule,
-    ContentSecurityModule,
     FeatureFlagModule,
     ResilienceModule,
     OperationLogModule,

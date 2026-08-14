@@ -15,6 +15,7 @@ describe('SubscriptionMessageService', () => {
       getOrThrow: jest.fn().mockReturnValue('configured-secret'),
     } as unknown as ConfigService;
     const prisma = {
+      userSetting: { findUnique: jest.fn().mockResolvedValue(null) },
       user: { findUnique: jest.fn().mockResolvedValue({ openid: 'openid-secret' }) },
       notification: { update: jest.fn().mockResolvedValue(undefined) },
     } as unknown as PrismaService;

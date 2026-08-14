@@ -1,5 +1,5 @@
 import { request } from './client';
-import type { AdminUser, ContentItem, FeatureFlagSettings, ForumAuditItem, ForumBoardItem, ForumContentPreview, ForumContentType, ForumQueueResult, ForumRestrictionItem, ListResult, MetricsSnapshot, RegulationFeedbackItem, RegulationImportListItem, RegulationImportTask, RegulationItem, RegulationPayload, ReportItem, RouteItem, RoutePayload, TaskFailureItem, TrendItem, UpdateFeatureFlagSettings, UserItem } from '../types';
+import type { AdminUser, ContentItem, FeatureFlagSettings, ForumAuditItem, ForumBoardItem, ForumContentPreview, ForumContentType, ForumQueueResult, ForumRestrictionItem, ListResult, MetricsSnapshot, RegulationFeedbackItem, RegulationImportListItem, RegulationImportTask, RegulationItem, RegulationPayload, ReportItem, RouteCommentAdminItem, RouteItem, RoutePayload, SafetyAgreementAdminItem, SafetyGuideAdminItem, SafetyGuideRevisionPayload, TaskFailureItem, TrendItem, UpdateFeatureFlagSettings, UserItem } from '../types';
 
 export const adminApi = {
   login: (username: string, password: string) => request<{ access_token: string; admin: AdminUser }>({ method: 'POST', url: '/admin/auth/login', data: { username, password } }),
@@ -64,4 +64,14 @@ export const adminApi = {
   reconcileCounters: (note: string) => request<{ routes: number; forumPosts: number; total: number }>({ method: 'POST', url: '/admin/maintenance/counters/reconcile', data: { note } }),
   featureFlags: () => request<FeatureFlagSettings>({ url: '/admin/feature-flags' }),
   updateFeatureFlags: (data: UpdateFeatureFlagSettings) => request<FeatureFlagSettings>({ method: 'PATCH', url: '/admin/feature-flags', data }),
+  routeComments: (params: Record<string, unknown>) => request<ListResult<RouteCommentAdminItem>>({ url: '/admin/route-comments', params }),
+  deleteRouteComment: (id: string, reason: string) => request<void>({ method: 'DELETE', url: `/admin/route-comments/${id}`, data: { reason } }),
+  safetyGuides: () => request<SafetyGuideAdminItem[]>({ url: '/admin/safety-guides' }),
+  createSafetyGuideRevision: (data: SafetyGuideRevisionPayload) => request<{ id: string }>({ method: 'POST', url: '/admin/safety-guides/revisions', data }),
+  reviewSafetyGuide: (id: string, reason: string) => request<void>({ method: 'POST', url: `/admin/safety-guides/revisions/${id}/review`, data: { reason } }),
+  publishSafetyGuide: (id: string, reason: string) => request<void>({ method: 'POST', url: `/admin/safety-guides/revisions/${id}/publish`, data: { reason } }),
+  safetyAgreements: () => request<SafetyAgreementAdminItem[]>({ url: '/admin/safety-agreements' }),
+  createSafetyAgreement: (data: Record<string, unknown>) => request<Array<{ id: string }>>({ method: 'POST', url: '/admin/safety-agreements', data }),
+  reviewSafetyAgreement: (id: string, reason: string) => request<void>({ method: 'POST', url: `/admin/safety-agreements/${id}/review`, data: { reason } }),
+  publishSafetyAgreement: (id: string, reason: string) => request<void>({ method: 'POST', url: `/admin/safety-agreements/${id}/publish`, data: { reason } }),
 };

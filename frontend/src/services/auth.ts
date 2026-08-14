@@ -4,12 +4,13 @@ import { AuthTokens, CurrentUser } from "@/types/api";
 import { useUserStore } from "@/stores/user-store";
 import { useNotificationStore } from "@/stores/notification-store";
 import { request } from "./request";
+import type { LEGAL_CONSENT } from "@/legal/legal-content";
+
+export type LegalConsent = typeof LEGAL_CONSENT;
 
 interface LoginResult extends AuthTokens {
   user: CurrentUser;
 }
-let loginPromise: Promise<void> | null = null;
-
 /**
  * 确保本地存在可用会话。`force` 用于服务端明确返回 401 后，丢弃旧令牌并重新换取微信会话。
  */
@@ -17,13 +18,13 @@ export async function ensureLogin(force = false): Promise<void> {
   const state = useUserStore.getState();
   state.hydrate();
   if (!force && state.accessToken && state.refreshToken && state.user) return;
-  loginPromise ??= loginWithWechat().finally(() => {
-    loginPromise = null;
-  });
-  return loginPromise;
+  throw new Error("请先前往登录页阅读并同意用户协议和隐私政策");
 }
 
-export async function loginWithWechat(userInfo?: { nickName: string; avatarUrl: string }): Promise<void> {
+export async function loginWithWechat(
+  userInfo: { nickName: string; avatarUrl: string } | undefined,
+  legalConsent: LegalConsent,
+): Promise<void> {
   const login = await Taro.login();
   if (!login.code) throw new Error("微信登录未返回 code");
   const result = await request<LoginResult>({
@@ -34,6 +35,7 @@ export async function loginWithWechat(userInfo?: { nickName: string; avatarUrl: 
       ...(userInfo
         ? { nickname: userInfo.nickName, avatar_url: userInfo.avatarUrl }
         : {}),
+      legal_consent: legalConsent,
     },
   });
   useUserStore

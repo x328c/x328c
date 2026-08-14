@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import Taro, { useLoad, useShareAppMessage } from "@tarojs/taro";
 import { ConfirmDialog, Empty, Skeleton, StatusTag } from "@/components";
 import { rideService } from "@/services/rides";
+import { confirmSafetyAgreement } from "@/services/safety";
 import { useRideInteractionStore } from "@/stores/ride-interaction-store";
 import { useUserStore } from "@/stores/user-store";
 import type { RideDetail, RideParticipant } from "@/types/api";
@@ -53,19 +54,19 @@ export default function RideDetailPage() {
   });
   useEffect(() => { useUserStore.getState().hydrate(); }, []);
   useShareAppMessage(() => ({
-    title: ride?.title ?? "约骑详情",
+    title: ride?.title ?? "同行详情",
     path: `/pages/rides/detail/index?id=${ride?.id ?? ""}&source=share`,
     imageUrl: ride?.creator.avatar_url ?? "",
   }));
 
   if (loading) return <View className="ride-detail"><Skeleton /><Skeleton /></View>;
-  if (!ride) return <View className="ride-detail"><Empty text="约骑不存在或已被删除" /></View>;
+  if (!ride) return <View className="ride-detail"><Empty text="同行不存在或已被删除" /></View>;
 
   const canJoin = (ride.status === 1 || ride.status === 2) && !ride.is_full;
   const isCreator = useUserStore.getState().user?.id === ride.creator.id;
-  const actionText = joined ? "已报名" : ride.is_full ? "名额已满" : ride.status === 1 || ride.status === 2 ? "立即报名" : ride.status === 3 ? "约骑进行中" : ride.status === 4 ? "约骑已结束" : "约骑已取消";
+  const actionText = joined ? "已报名" : ride.is_full ? "名额已满" : ride.status === 1 || ride.status === 2 ? "立即报名" : ride.status === 3 ? "同行进行中" : ride.status === 4 ? "同行已结束" : "同行已取消";
   const percentage = Math.min(100, Math.round((ride.join_count / ride.max_people) * 100));
-  const description = ride.description || "发起人暂未填写约骑说明。";
+  const description = ride.description || "发起人暂未填写同行说明。";
 
   const openMap = () => {
     if (!ride.meetup_lat || !ride.meetup_lng) return Taro.showToast({ title: "暂未提供坐标", icon: "none" });
@@ -85,7 +86,9 @@ export default function RideDetailPage() {
     if (!canJoin || joining) return;
     setJoining(true);
     try {
-      await rideService.join(ride.id);
+      const confirmation = await confirmSafetyAgreement("ride_join", `加入同行：${ride.title}`);
+      if (confirmation === null) return;
+      await rideService.join(ride.id, confirmation?.agreement, confirmation?.idempotencyKey);
       setJoined(true); cacheJoined(ride.id, true); setShowJoinConfirm(false);
       Taro.showToast({ title: "报名成功！", icon: "success" });
       await requestReminder(); await load(ride.id);
@@ -127,7 +130,7 @@ export default function RideDetailPage() {
   };
 
   return <View className="ride-detail">
-    {ride.status === 0 && <View className="ride-detail__cancelled">该约骑已被发起人取消</View>}
+    {ride.status === 0 && <View className="ride-detail__cancelled">该同行已被发起人取消</View>}
     <View className="ride-detail__title-row"><Text className="ride-detail__title">{ride.title}</Text><StatusTag status={ride.status} full={ride.is_full} /></View>
     <View className="ride-detail__creator" onClick={() => Taro.navigateTo({ url: `/pages/users/profile/index?id=${ride.creator.id}` })}>
       <Avatar src={ride.creator.avatar_url} name={ride.creator.nickname} />
@@ -142,8 +145,9 @@ export default function RideDetailPage() {
       <View className="ride-detail__people"><View className="ride-detail__people-title"><Text>报名进度</Text><Text>{ride.join_count}人 / 最多{ride.max_people}人</Text></View><Progress percent={percentage} strokeWidth={8} activeColor="#237804" backgroundColor="#e5ece7" /></View>
     </View>
 
+    {ride.route ? <View className="ride-detail__section" onClick={() => ride.route?.available && Taro.navigateTo({ url: `/packageRoutes/pages/detail/index?id=${ride.route.id}` })}><Text className="ride-detail__section-heading">关联路线</Text><Text>{ride.route.title}</Text><Text>{ride.route.available ? `${ride.route.start_name || "起点"} → ${ride.route.end_name || "终点"} ›` : "原关联路线已下架，同行信息仍以本页为准"}</Text></View> : null}
     <View className="ride-detail__section"><View className="ride-detail__section-title"><Text>已报名（{ride.join_count}人）</Text><Text onClick={() => Taro.navigateTo({ url: `/pages/rides/participants/index?id=${ride.id}` })}>查看全部 ›</Text></View><ScrollView scrollX className="ride-detail__avatars"><View className="ride-detail__avatars-inner">{participants.length ? participants.slice(0, 8).map((participant) => <View key={participant.user_id} className="ride-detail__participant-wrap">{participant.avatar_url ? <Image className="ride-detail__participant" src={participant.avatar_url} /> : <View className="ride-detail__participant ride-detail__participant--placeholder">{participant.nickname.slice(0, 1)}</View>}{participant.is_creator && <Text className="ride-detail__creator-badge">发起人</Text>}</View>) : <Text className="ride-detail__no-participant">暂时还没有人报名</Text>}</View></ScrollView></View>
-    <View className="ride-detail__section"><Text className="ride-detail__section-heading">约骑说明</Text><Text className={expanded ? "ride-detail__description ride-detail__description--expanded" : "ride-detail__description"}>{description}</Text>{description.length > 54 && <Text className="ride-detail__expand" onClick={() => setExpanded(!expanded)}>{expanded ? "收起" : "展开"}</Text>}</View>
+    <View className="ride-detail__section"><Text className="ride-detail__section-heading">同行说明</Text><Text className={expanded ? "ride-detail__description ride-detail__description--expanded" : "ride-detail__description"}>{description}</Text>{description.length > 54 && <Text className="ride-detail__expand" onClick={() => setExpanded(!expanded)}>{expanded ? "收起" : "展开"}</Text>}</View>
     <View className="ride-detail__safety">安全提示：请遵守交通法规，佩戴头盔与护具，量力而行。</View>
     <View className="ride-detail__bottom"><View className="ride-detail__contact" onClick={contact}>联系发起人</View><View className={canJoin || joined ? "ride-detail__join" : "ride-detail__join ride-detail__join--disabled"} onClick={primaryAction}>{joining ? "处理中…" : actionText}</View></View>
     <ConfirmDialog visible={showJoinConfirm} title="确认报名" content={`报名“${ride.title}”后请按时到达并遵守安全规则。`} onCancel={() => setShowJoinConfirm(false)} onConfirm={() => void join()} />

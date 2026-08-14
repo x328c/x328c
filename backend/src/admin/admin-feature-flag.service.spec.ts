@@ -33,12 +33,15 @@ describe('AdminFeatureFlagService', () => {
   });
 
   it('returns all managed flags using the fail-closed feature flag service', async () => {
-    (flags.get as jest.Mock)
-      .mockResolvedValueOnce(true)
-      .mockResolvedValueOnce(true)
-      .mockResolvedValueOnce(false)
-      .mockResolvedValueOnce(false)
-      .mockResolvedValueOnce('invite_only');
+    (flags.get as jest.Mock).mockImplementation((key: string) =>
+      Promise.resolve(
+        key === 'route.enabled' || key === 'regulation.enabled'
+          ? true
+          : key === 'forum.publish_mode'
+            ? 'invite_only'
+            : false,
+      ),
+    );
 
     await expect(service.getAll()).resolves.toEqual({
       route_enabled: true,
@@ -46,16 +49,22 @@ describe('AdminFeatureFlagService', () => {
       forum_enabled: false,
       forum_write_enabled: false,
       forum_publish_mode: 'invite_only',
+      route_link_enabled: false,
+      route_comment_enabled: false,
+      route_comment_read_enabled: false,
+      safety_guide_enabled: false,
+      safety_agreement_enforced: false,
     });
   });
 
   it('updates all values in one transaction, appends audit and invalidates every cache key', async () => {
-    (flags.get as jest.Mock)
-      .mockResolvedValueOnce(true)
-      .mockResolvedValueOnce(true)
-      .mockResolvedValueOnce(true)
-      .mockResolvedValueOnce(true)
-      .mockResolvedValueOnce('all');
+    (flags.get as jest.Mock).mockImplementation((key: string) =>
+      Promise.resolve(
+        key === 'forum.publish_mode'
+          ? 'all'
+          : !['safety_guide.enabled', 'safety_agreement.enforced'].includes(key),
+      ),
+    );
 
     const result = await service.update(
       {
@@ -64,6 +73,11 @@ describe('AdminFeatureFlagService', () => {
         forum_enabled: true,
         forum_write_enabled: true,
         forum_publish_mode: 'all',
+        route_link_enabled: true,
+        route_comment_enabled: true,
+        route_comment_read_enabled: true,
+        safety_guide_enabled: false,
+        safety_agreement_enforced: false,
         reason: '本地完整功能联调',
       },
       { adminId: 9n, requestId: 'request-1', ipAddress: '127.0.0.1' },
@@ -75,7 +89,7 @@ describe('AdminFeatureFlagService', () => {
       expect.objectContaining({
         action: 'feature_flags.update',
         objectType: 'feature_flags',
-        objectId: 'v2',
+        objectId: 'v2.1',
         reason: '本地完整功能联调',
       }),
     );
@@ -86,6 +100,11 @@ describe('AdminFeatureFlagService', () => {
       forum_enabled: true,
       forum_write_enabled: true,
       forum_publish_mode: 'all',
+      route_link_enabled: true,
+      route_comment_enabled: true,
+      route_comment_read_enabled: true,
+      safety_guide_enabled: false,
+      safety_agreement_enforced: false,
     });
   });
 
@@ -98,6 +117,11 @@ describe('AdminFeatureFlagService', () => {
           forum_enabled: false,
           forum_write_enabled: true,
           forum_publish_mode: 'all',
+          route_link_enabled: false,
+          route_comment_enabled: false,
+          route_comment_read_enabled: false,
+          safety_guide_enabled: false,
+          safety_agreement_enforced: false,
           reason: '无效配置',
         },
         { adminId: 9n, requestId: 'request-2' },

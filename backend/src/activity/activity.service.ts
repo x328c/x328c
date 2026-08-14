@@ -1,8 +1,9 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { ContentSecurityService } from '../common/content-security/content-security.service';
 import { AppException } from '../common/exceptions/app.exception';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { FeatureFlagService } from '../common/feature-flag/feature-flag.service';
+import { SafetyAgreementService } from '../safety/safety-agreement.service';
 import {
   ActivityActionDto,
   ActivityQueryDto,
@@ -21,6 +22,24 @@ const include = {
     take: 8,
     include: { user: true },
   },
+  route_links: {
+    take: 1,
+    include: {
+      route: {
+        select: {
+          id: true,
+          title: true,
+          city_code: true,
+          city_name: true,
+          difficulty: true,
+          distance_km: true,
+          status: true,
+          deleted_at: true,
+          points: { orderBy: { order: 'asc' as const }, select: { name: true, type: true } },
+        },
+      },
+    },
+  },
 } satisfies Prisma.ActivityInclude;
 type ActivityRecord = Prisma.ActivityGetPayload<{ include: typeof include }>;
 
@@ -28,7 +47,8 @@ type ActivityRecord = Prisma.ActivityGetPayload<{ include: typeof include }>;
 export class ActivityService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly security: ContentSecurityService,
+    private readonly flags: FeatureFlagService,
+    private readonly safetyAgreements: SafetyAgreementService,
   ) {}
 
   async list(query: ActivityQueryDto) {
@@ -81,7 +101,12 @@ export class ActivityService {
     };
   }
 
-  async create(userId: bigint, dto: CreateActivityDto) {
+  async create(
+    userId: bigint,
+    dto: CreateActivityDto,
+    requestId = 'unknown',
+    idempotencyKey?: string,
+  ) {
     if (
       new Date(dto.end_time) <= new Date(dto.start_time) ||
       new Date(dto.start_time) <= new Date()
@@ -89,34 +114,49 @@ export class ActivityService {
       throw new AppException(1001, '活动时间不合法');
     if (dto.fee_type === 3 && dto.fee_amount === undefined)
       throw new AppException(1001, '固定费用必须填写金额');
-    await this.security.checkText(
-      `${dto.title}\n${dto.content}\n${dto.requirements ?? ''}`,
-      `activity-${userId}-${Date.now()}`,
-    );
-    const item = await this.prisma.activity.create({
-      data: {
-        ...dto,
-        user_id: userId,
-        start_time: new Date(dto.start_time),
-        end_time: new Date(dto.end_time),
-        meetup_lat: new Prisma.Decimal(dto.meetup_lat),
-        meetup_lng: new Prisma.Decimal(dto.meetup_lng),
-        fee_amount: dto.fee_amount === undefined ? undefined : new Prisma.Decimal(dto.fee_amount),
-        status: 1,
-      },
-      include,
+    const { route_id, route_link_source, agreement, ...payload } = dto;
+    const item = await this.prisma.$transaction(async (tx) => {
+      const route = route_id
+        ? await this.validateRouteLink(tx, BigInt(route_id), dto.city_code)
+        : null;
+      const created = await tx.activity.create({
+        data: {
+          ...payload,
+          user_id: userId,
+          start_time: new Date(dto.start_time),
+          end_time: new Date(dto.end_time),
+          meetup_lat: new Prisma.Decimal(dto.meetup_lat),
+          meetup_lng: new Prisma.Decimal(dto.meetup_lng),
+          fee_amount: dto.fee_amount === undefined ? undefined : new Prisma.Decimal(dto.fee_amount),
+          status: 1,
+          ...(route
+            ? {
+                route_links: {
+                  create: { route_id: route.id, source: route_link_source ?? 'create_form' },
+                },
+              }
+            : {}),
+        },
+        include,
+      });
+      await this.safetyAgreements.verifyAndRecord(tx, {
+        userId,
+        scene: 'activity_create',
+        targetType: 'activity',
+        targetId: created.id,
+        proof: agreement,
+        requestId,
+        idempotencyKey,
+      });
+      return created;
     });
     return this.summary(item);
   }
 
   async update(userId: bigint, id: bigint, dto: UpdateActivityDto) {
-    const current = await this.findOwnedEditable(userId, id);
+    await this.findOwnedEditable(userId, id);
     if (dto.start_time && new Date(dto.start_time) <= new Date())
       throw new AppException(1001, '活动已开始或开始时间不合法');
-    await this.security.checkText(
-      `${dto.title ?? current.title}\n${dto.content ?? current.content ?? ''}`,
-      `activity-${id}-${Date.now()}`,
-    );
     const item = await this.prisma.activity.update({
       where: { id },
       data: {
@@ -156,7 +196,13 @@ export class ActivityService {
     return { success: true };
   }
 
-  async register(userId: bigint, id: bigint, dto: RegisterActivityDto) {
+  async register(
+    userId: bigint,
+    id: bigint,
+    dto: RegisterActivityDto,
+    requestId = 'unknown',
+    idempotencyKey?: string,
+  ) {
     return this.prisma.$transaction(
       async (tx) => {
         const activity = await tx.activity.findFirst({ where: { id, deleted_at: null } });
@@ -172,11 +218,12 @@ export class ActivityService {
         if (activity.max_people > 0 && activeCount >= activity.max_people)
           throw new AppException(4002, '活动报名已满');
         const status = activity.need_approval ? 1 : 2;
+        const { agreement, ...registrationPayload } = dto;
         const registration = old
           ? await tx.activityRegistration.update({
               where: { id: old.id },
               data: {
-                ...dto,
+                ...registrationPayload,
                 status,
                 reject_reason: null,
                 registered_at: new Date(),
@@ -186,7 +233,7 @@ export class ActivityService {
             })
           : await tx.activityRegistration.create({
               data: {
-                ...dto,
+                ...registrationPayload,
                 activity_id: id,
                 user_id: userId,
                 status,
@@ -205,6 +252,15 @@ export class ActivityService {
             related_id: id,
             from_user_id: userId,
           },
+        });
+        await this.safetyAgreements.verifyAndRecord(tx, {
+          userId,
+          scene: 'activity_register',
+          targetType: 'activity',
+          targetId: id,
+          proof: agreement,
+          requestId,
+          idempotencyKey,
         });
         return { registration_id: registration.id.toString(), status };
       },
@@ -416,6 +472,36 @@ export class ActivityService {
       registration_avatars: item.registrations
         .map((x) => x.user.avatar_url)
         .filter((x): x is string => Boolean(x)),
+      route: this.serializeRouteLink(item.route_links[0]?.route),
+    };
+  }
+
+  private async validateRouteLink(tx: Prisma.TransactionClient, routeId: bigint, cityCode: string) {
+    await this.flags.assertEnabled('route.link_enabled');
+    const route = await tx.route.findFirst({
+      where: { id: routeId, status: 1, deleted_at: null },
+      select: { id: true, city_code: true },
+    });
+    if (!route) throw new AppException(53001, '所选路线已下架或不可关联', HttpStatus.CONFLICT);
+    if (route.city_code && route.city_code !== cityCode)
+      throw new AppException(53002, '路线城市与活动城市不一致，请重新确认', HttpStatus.CONFLICT);
+    return route;
+  }
+
+  private serializeRouteLink(route: ActivityRecord['route_links'][number]['route'] | undefined) {
+    if (!route) return null;
+    const start = route.points.find((point) => point.type === 'start') ?? route.points[0];
+    const end = route.points.find((point) => point.type === 'end') ?? route.points.at(-1);
+    return {
+      id: route.id.toString(),
+      title: route.title,
+      city_code: route.city_code,
+      city_name: route.city_name,
+      difficulty: route.difficulty,
+      distance_km: route.distance_km?.toString() ?? null,
+      start_name: start?.name ?? null,
+      end_name: end?.name ?? null,
+      available: route.status === 1 && route.deleted_at === null,
     };
   }
 }

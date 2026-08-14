@@ -6,6 +6,7 @@ import { LogoutDto } from './dto/logout.dto';
 import { WxLoginDto } from './dto/wx-login.dto';
 import { JwtPayload } from './entity/auth-token.entity';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { getRequestId } from '../common/request/request-context';
 
 @Controller('auth')
 export class AuthController {
@@ -13,8 +14,14 @@ export class AuthController {
 
   @Post('wx-login')
   @HttpCode(200)
-  wxLogin(@Body() dto: WxLoginDto) {
-    return this.authService.wxLogin(dto.code, dto.nickname, dto.avatar_url);
+  wxLogin(@Req() request: Request, @Body() dto: WxLoginDto) {
+    return this.authService.wxLogin(
+      dto.code,
+      dto.legal_consent,
+      getRequestId(request),
+      dto.nickname,
+      dto.avatar_url,
+    );
   }
 
   @Post('refresh-token')

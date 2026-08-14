@@ -114,6 +114,18 @@ http.interceptors.request.use((config) => {
 });
 
 let refreshPromise: Promise<AuthTokens> | null = null;
+let redirectingToLogin = false;
+
+function invalidateSession(): void {
+  useUserStore.getState().clearSession();
+  if (redirectingToLogin) return;
+
+  redirectingToLogin = true;
+  // 会话已无法恢复，不能静默重新登录；跳转授权页让用户主动确认登录。
+  void openLogin(currentPageUrl(), true).catch(() => {
+    redirectingToLogin = false;
+  });
+}
 
 async function refreshToken(): Promise<AuthTokens> {
   const { refreshToken: token } = useUserStore.getState();
@@ -151,12 +163,11 @@ http.interceptors.response.use(
         const state = useUserStore.getState();
         if (!state.user) throw new Error("Missing user session");
         state.setSession(tokens.access_token, tokens.refresh_token, state.user);
-        config.headers.set('Authorization', `Bearer ${tokens.access_token}`);
+        redirectingToLogin = false;
+        config.headers.set("Authorization", `Bearer ${tokens.access_token}`);
         return http.request(config);
       } catch {
-        useUserStore.getState().clearSession();
-        // 会话已无法恢复，不能静默重新登录；跳转授权页让用户主动确认登录。
-        void openLogin(currentPageUrl(), true);
+        invalidateSession();
       } finally {
         refreshPromise = null;
       }

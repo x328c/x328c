@@ -4,8 +4,10 @@
 .routes-page__title { display: block; color: $color-text; font-size: 42px; font-weight: 700; }
 .routes-page__subtitle { display: block; margin-top: $space-1; color: $color-text-secondary; font-size: 24px; }
 .routes-page__city { height: 68px; margin-top: $space-3; padding: 0 $space-3; border: 1px solid $color-border; border-radius: $radius-md; background: #fff; font-size: 26px; }
-.routes-page__filters { padding: $space-2 $space-4 0; white-space: nowrap; }
-.routes-page__filter-row { display: inline-flex; gap: $space-2; }
+.routes-page__user-actions { display: flex; gap: $space-2; margin-top: $space-3; }
+.routes-page__user-actions Text { padding: 14px 20px; border-radius: $radius-md; background: $color-brand; color: #fff; font-size: 23px; }
+.routes-page__filters { white-space: nowrap; }
+.routes-page__filter-row { display: inline-flex; gap: $space-2; padding: $space-2 $space-4 0; }
 .routes-page__chip { padding: 12px 22px; border: 1px solid $color-border; border-radius: 999px; background: #fff; color: $color-text-secondary; font-size: 24px; }
 .routes-page__chip--active { border-color: $color-brand; background: $color-brand-soft; color: $color-brand-strong; }
 .routes-page__list { padding: $space-3 $space-4; }

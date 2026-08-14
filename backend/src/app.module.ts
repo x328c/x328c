@@ -19,6 +19,8 @@ import { ScheduleModule } from './schedule/schedule.module';
 import { UserModule } from './user/user.module';
 import { TelemetryModule } from './telemetry/telemetry.module';
 import { MaintenanceModule } from './maintenance/maintenance.module';
+import { SafetyModule } from './safety/safety.module';
+import { SettingsModule } from './settings/settings.module';
 
 @Module({
   imports: [
@@ -41,6 +43,8 @@ import { MaintenanceModule } from './maintenance/maintenance.module';
     ScheduleModule,
     TelemetryModule,
     MaintenanceModule,
+    SafetyModule,
+    SettingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

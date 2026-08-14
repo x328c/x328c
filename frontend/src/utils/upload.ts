@@ -30,7 +30,7 @@ export interface UploadedImage {
 export async function uploadImage(
   filePath: string,
   fallbackType: ImageMime = "image/jpeg",
-  category: "rides" | "activities" | "avatars" | "forum" = "rides",
+  category: "rides" | "activities" | "avatars" | "forum" | "route-comments" | "user-routes" = "rides",
 ): Promise<string> {
   const [fileInfo, fileType] = await Promise.all([
     Taro.getFileInfo({ filePath }),

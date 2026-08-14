@@ -12,6 +12,8 @@ import { RedisService } from '../common/redis/redis.service';
 import { AppException } from '../common/exceptions/app.exception';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AuthTokens, JwtPayload } from './entity/auth-token.entity';
+import { LoginLegalConsentDto } from './dto/wx-login.dto';
+import { LOGIN_LEGAL_DOCUMENTS } from './legal-documents.constants';
 
 interface WechatCode2SessionResponse {
   openid?: string;
@@ -40,31 +42,53 @@ export class AuthService {
     private readonly prisma: PrismaService,
   ) {}
 
-  async wxLogin(code: string, nickname?: string, avatarUrl?: string): Promise<WxLoginResult> {
+  async wxLogin(
+    code: string,
+    consent: LoginLegalConsentDto,
+    requestId: string,
+    nickname?: string,
+    avatarUrl?: string,
+  ): Promise<WxLoginResult> {
+    this.assertCurrentLegalConsent(consent);
     const wechatSession = await this.getWechatSession(code);
     const now = new Date();
-    const user = await this.prisma.user.upsert({
-      where: { openid: wechatSession.openid },
-      create: {
-        openid: wechatSession.openid,
-        unionid: wechatSession.unionid,
-        nickname: nickname || '新骑友',
-        avatar_url: avatarUrl || null,
-        last_login_at: now,
-        profile: { create: {} },
-      },
-      update: {
-        unionid: wechatSession.unionid,
-        nickname: nickname || undefined,
-        avatar_url: avatarUrl || undefined,
-        last_login_at: now,
-        deleted_at: null,
-      },
-      include: { profile: true },
+    const user = await this.prisma.$transaction(async (tx) => {
+      const account = await tx.user.upsert({
+        where: { openid: wechatSession.openid },
+        create: {
+          openid: wechatSession.openid,
+          unionid: wechatSession.unionid,
+          nickname: nickname || '新骑友',
+          avatar_url: avatarUrl || null,
+          last_login_at: now,
+          profile: { create: {} },
+        },
+        update: {
+          unionid: wechatSession.unionid,
+          nickname: nickname || undefined,
+          avatar_url: avatarUrl || undefined,
+          last_login_at: now,
+          deleted_at: null,
+        },
+        include: { profile: true },
+      });
+      if (account.status !== 1) {
+        throw new AppException(2001, '用户已被禁用', HttpStatus.UNAUTHORIZED);
+      }
+      await tx.legalAcceptance.create({
+        data: {
+          user_id: account.id,
+          bundle_version: consent.bundle_version,
+          user_agreement_hash: consent.user_agreement_hash,
+          privacy_policy_hash: consent.privacy_policy_hash,
+          safety_notice_hash: consent.safety_notice_hash,
+          source: 'wx_login',
+          request_id: requestId,
+          accepted_at: now,
+        },
+      });
+      return account;
     });
-    if (user.status !== 1) {
-      throw new AppException(2001, '用户已被禁用', HttpStatus.UNAUTHORIZED);
-    }
     const tokens = await this.issueTokens(user.id, user.role);
 
     return {
@@ -82,6 +106,18 @@ export class AuthService {
           : null,
       },
     };
+  }
+
+  private assertCurrentLegalConsent(consent: LoginLegalConsentDto): void {
+    if (
+      !consent?.accepted ||
+      consent.bundle_version !== LOGIN_LEGAL_DOCUMENTS.bundleVersion ||
+      consent.user_agreement_hash !== LOGIN_LEGAL_DOCUMENTS.userAgreementHash ||
+      consent.privacy_policy_hash !== LOGIN_LEGAL_DOCUMENTS.privacyPolicyHash ||
+      consent.safety_notice_hash !== LOGIN_LEGAL_DOCUMENTS.safetyNoticeHash
+    ) {
+      throw new AppException(1004, '请阅读并同意当前版本协议与隐私政策', HttpStatus.BAD_REQUEST);
+    }
   }
 
   async issueTokens(userId: bigint, role: number): Promise<AuthTokens> {

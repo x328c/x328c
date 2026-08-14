@@ -4,11 +4,14 @@ import { useState } from "react";
 import { loginWithWechat } from "@/services/auth";
 import { useUserStore } from "@/stores/user-store";
 import { redirectAfterLogin } from "@/utils/login-return";
+import { LEGAL_CONSENT, legalDocumentUrl, type LegalDocumentKey } from "@/legal/legal-content";
 import "./index.scss";
 
 /** 独立授权页：退出后只会显示此页，绝不渲染旧用户资料。 */
 export default function AuthPage() {
   const [submitting, setSubmitting] = useState(false);
+  const [accepted, setAccepted] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(true);
 
   useDidShow(() => {
     useUserStore.getState().hydrate();
@@ -19,9 +22,13 @@ export default function AuthPage() {
 
   const handleLogin = async (userInfo?: { nickName: string; avatarUrl: string }) => {
     if (submitting) return;
+    if (!accepted) {
+      Taro.showToast({ title: "请先阅读并勾选协议与安全须知", icon: "none" });
+      return;
+    }
     setSubmitting(true);
     try {
-      await loginWithWechat(userInfo);
+      await loginWithWechat(userInfo, LEGAL_CONSENT);
       await redirectAfterLogin();
     } catch (error) {
       Taro.showToast({
@@ -32,6 +39,9 @@ export default function AuthPage() {
       setSubmitting(false);
     }
   };
+
+  const openLegal = (type: LegalDocumentKey) =>
+    Taro.navigateTo({ url: legalDocumentUrl(type) });
 
   const handleGetUserInfo = (event: {
     detail: {
@@ -65,15 +75,32 @@ export default function AuthPage() {
           className="auth-page__login"
           openType="getUserInfo"
           loading={submitting}
-          disabled={submitting}
+          disabled={submitting || !accepted}
           onGetUserInfo={handleGetUserInfo}
         >
           微信一键登录
         </Button>
-        <Text className="auth-page__agreement">
-          登录即代表同意《用户协议》和《隐私政策》
-        </Text>
+        <View className="auth-page__consent" onClick={() => setAccepted((value) => !value)}>
+          <View className={`auth-page__checkbox${accepted ? " auth-page__checkbox--checked" : ""}`}>{accepted ? "✓" : ""}</View>
+          <View className="auth-page__agreement">
+            <Text>我已阅读并同意</Text>
+            <Text className="auth-page__link" onClick={(event) => { event.stopPropagation(); void openLegal("user-agreement"); }}>《用户协议》</Text>
+            <Text>和</Text>
+            <Text className="auth-page__link" onClick={(event) => { event.stopPropagation(); void openLegal("privacy-policy"); }}>《隐私政策》</Text>
+            <Text>，并已阅知</Text>
+            <Text className="auth-page__link" onClick={(event) => { event.stopPropagation(); void openLegal("safety-notice"); }}>《安全须知》</Text>
+          </View>
+        </View>
       </View>
+      {privacyOpen ? <View className="auth-page__privacy-dialog">
+        <View className="auth-page__privacy-mask" />
+        <View className="auth-page__privacy-panel">
+          <Text className="auth-page__privacy-title">隐私保护提示</Text>
+          <Text className="auth-page__privacy-copy">登录会处理你的微信账号标识、授权的昵称和头像，并记录本次协议确认。位置、相册等权限只在你主动使用对应功能时申请；个人位置会先做模糊偏移。</Text>
+          <Text className="auth-page__privacy-link" onClick={() => void openLegal("privacy-policy")}>阅读完整《隐私政策》</Text>
+          <Button className="auth-page__privacy-confirm" onClick={() => setPrivacyOpen(false)}>我已知晓，继续</Button>
+        </View>
+      </View> : null}
     </View>
   );
 }

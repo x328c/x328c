@@ -3,6 +3,7 @@ import {
   IsDateString,
   IsInt,
   IsNumber,
+  IsNumberString,
   IsObject,
   IsOptional,
   IsString,
@@ -10,8 +11,10 @@ import {
   Max,
   Min,
 } from 'class-validator';
+import { IsIn } from 'class-validator';
+import { OptionalAgreementDto } from '../../safety/dto/agreement.dto';
 
-export class CreateRideDto {
+export class CreateRideDto extends OptionalAgreementDto {
   @IsString() @Length(1, 50) title!: string;
   @Type(() => Number) @IsInt() @Min(1) @Max(5) ride_style!: number;
   @IsDateString() departure_time!: string;
@@ -26,4 +29,7 @@ export class CreateRideDto {
   @IsOptional() @IsString() @Length(1, 5000) description?: string;
   @IsOptional() @IsObject() rules?: Record<string, unknown>;
   @IsString() @Length(1, 20) city_code!: string;
+  @IsOptional() @IsNumberString({ no_symbols: true }) @Length(1, 32) route_id?: string;
+  @IsOptional() @IsIn(['route_detail', 'create_form']) route_link_source?:
+    'route_detail' | 'create_form';
 }

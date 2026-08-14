@@ -35,6 +35,20 @@ export class SubscriptionMessageService {
     page?: string,
   ): Promise<void> {
     if (this.config.get('SUBSCRIPTION_MESSAGE_ENABLED', 'false') !== 'true') return;
+    const setting = await this.prisma.userSetting.findUnique({
+      where: { user_id: userId },
+      select: {
+        ride_notifications: true,
+        activity_notifications: true,
+        system_notifications: true,
+      },
+    });
+    const allowed = template.startsWith('ride_')
+      ? (setting?.ride_notifications ?? true)
+      : template.startsWith('activity_')
+        ? (setting?.activity_notifications ?? true)
+        : (setting?.system_notifications ?? true);
+    if (!allowed) return;
     const templateId = this.templates[template];
     if (!templateId) {
       this.logger.warn(`Subscription template is not configured: ${template}`);

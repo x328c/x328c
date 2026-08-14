@@ -1,9 +1,11 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { ContentSecurityService } from '../common/content-security/content-security.service';
 import { AppException } from '../common/exceptions/app.exception';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { RedisService } from '../common/redis/redis.service';
+import { FeatureFlagService } from '../common/feature-flag/feature-flag.service';
+import { SafetyAgreementService } from '../safety/safety-agreement.service';
+import { OptionalAgreementDto } from '../safety/dto/agreement.dto';
 import {
   CreateRideDto,
   MyRideQueryDto,
@@ -22,6 +24,24 @@ const rideInclude = {
     orderBy: [{ is_creator: 'desc' }, { joined_at: 'asc' }],
     include: { user: true },
   },
+  route_links: {
+    take: 1,
+    include: {
+      route: {
+        select: {
+          id: true,
+          title: true,
+          city_code: true,
+          city_name: true,
+          difficulty: true,
+          distance_km: true,
+          status: true,
+          deleted_at: true,
+          points: { orderBy: { order: 'asc' as const }, select: { name: true, type: true } },
+        },
+      },
+    },
+  },
 } satisfies Prisma.RideInclude;
 type RideRecord = Prisma.RideGetPayload<{ include: typeof rideInclude }>;
 
@@ -30,7 +50,8 @@ export class RideService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
-    private readonly contentSecurity: ContentSecurityService,
+    private readonly flags: FeatureFlagService,
+    private readonly safetyAgreements: SafetyAgreementService,
   ) {}
 
   async list(query: RideQueryDto) {
@@ -115,29 +136,45 @@ export class RideService {
     };
   }
 
-  async create(userId: bigint, dto: CreateRideDto) {
+  async create(userId: bigint, dto: CreateRideDto, requestId = 'unknown', idempotencyKey?: string) {
     if (dto.min_people > dto.max_people) throw new AppException(1001, '最少人数不能大于最多人数');
     if (new Date(dto.departure_time) <= new Date())
       throw new AppException(1001, '出发时间必须晚于当前时间');
-    await this.contentSecurity.checkText(
-      `${dto.title}\n${dto.description ?? ''}`,
-      `ride-${userId.toString()}-${Date.now()}`,
-    );
-    // 嵌套创建由 Prisma 放在同一事务中执行，避免出现约骑已发布但发起人未报名的中间状态。
-    const ride = await this.prisma.ride.create({
-      data: {
-        ...dto,
-        rules: dto.rules as Prisma.InputJsonValue | undefined,
-        user_id: userId,
-        departure_time: new Date(dto.departure_time),
-        meetup_lat: new Prisma.Decimal(dto.meetup_lat),
-        meetup_lng: new Prisma.Decimal(dto.meetup_lng),
-        status: 1,
-        join_count: 1,
-        participants: {
-          create: { user_id: userId, status: 1, is_creator: true },
+    const { route_id, route_link_source, agreement, ...payload } = dto;
+    const ride = await this.prisma.$transaction(async (tx) => {
+      const route = route_id
+        ? await this.validateRouteLink(tx, BigInt(route_id), dto.city_code)
+        : null;
+      const created = await tx.ride.create({
+        data: {
+          ...payload,
+          rules: dto.rules as Prisma.InputJsonValue | undefined,
+          user_id: userId,
+          departure_time: new Date(dto.departure_time),
+          meetup_lat: new Prisma.Decimal(dto.meetup_lat),
+          meetup_lng: new Prisma.Decimal(dto.meetup_lng),
+          status: 1,
+          join_count: 1,
+          participants: { create: { user_id: userId, status: 1, is_creator: true } },
+          ...(route
+            ? {
+                route_links: {
+                  create: { route_id: route.id, source: route_link_source ?? 'create_form' },
+                },
+              }
+            : {}),
         },
-      },
+      });
+      await this.safetyAgreements.verifyAndRecord(tx, {
+        userId,
+        scene: 'ride_create',
+        targetType: 'ride',
+        targetId: created.id,
+        proof: agreement,
+        requestId,
+        idempotencyKey,
+      });
+      return created;
     });
     await this.redis.geoAdd(
       `geo:rides:${ride.city_code}`,
@@ -159,12 +196,6 @@ export class RideService {
     if (minPeople > maxPeople) throw new AppException(1001, '最少人数不能大于最多人数');
     if (dto.departure_time && new Date(dto.departure_time) <= new Date()) {
       throw new AppException(1001, '出发时间必须晚于当前时间');
-    }
-    if (dto.title !== undefined || dto.description !== undefined) {
-      await this.contentSecurity.checkText(
-        `${dto.title ?? ride.title}\n${dto.description ?? ride.description ?? ''}`,
-        `ride-${rideId.toString()}-${Date.now()}`,
-      );
     }
     const locationChanged =
       dto.city_code !== undefined || dto.meetup_lat !== undefined || dto.meetup_lng !== undefined;
@@ -244,7 +275,13 @@ export class RideService {
     return { success: true };
   }
 
-  async join(userId: bigint, rideId: bigint) {
+  async join(
+    userId: bigint,
+    rideId: bigint,
+    dto: OptionalAgreementDto = {},
+    requestId = 'unknown',
+    idempotencyKey?: string,
+  ) {
     const result = await this.prisma.$transaction(
       async (tx) => {
         const ride = await tx.ride.findFirst({ where: { id: rideId, deleted_at: null } });
@@ -278,6 +315,15 @@ export class RideService {
             related_id: rideId,
             from_user_id: userId,
           },
+        });
+        await this.safetyAgreements.verifyAndRecord(tx, {
+          userId,
+          scene: 'ride_join',
+          targetType: 'ride',
+          targetId: rideId,
+          proof: dto.agreement,
+          requestId,
+          idempotencyKey,
         });
         return updatedRide;
       },
@@ -462,6 +508,36 @@ export class RideService {
       participant_avatars: ride.participants
         .map((participant) => participant.user.avatar_url)
         .filter((url): url is string => Boolean(url)),
+      route: this.serializeRouteLink(ride.route_links[0]?.route),
+    };
+  }
+
+  private async validateRouteLink(tx: Prisma.TransactionClient, routeId: bigint, cityCode: string) {
+    await this.flags.assertEnabled('route.link_enabled');
+    const route = await tx.route.findFirst({
+      where: { id: routeId, status: 1, deleted_at: null },
+      select: { id: true, city_code: true },
+    });
+    if (!route) throw new AppException(53001, '所选路线已下架或不可关联', HttpStatus.CONFLICT);
+    if (route.city_code && route.city_code !== cityCode)
+      throw new AppException(53002, '路线城市与同行城市不一致，请重新确认', HttpStatus.CONFLICT);
+    return route;
+  }
+
+  private serializeRouteLink(route: RideRecord['route_links'][number]['route'] | undefined) {
+    if (!route) return null;
+    const start = route.points.find((point) => point.type === 'start') ?? route.points[0];
+    const end = route.points.find((point) => point.type === 'end') ?? route.points.at(-1);
+    return {
+      id: route.id.toString(),
+      title: route.title,
+      city_code: route.city_code,
+      city_name: route.city_name,
+      difficulty: route.difficulty,
+      distance_km: route.distance_km?.toString() ?? null,
+      start_name: start?.name ?? null,
+      end_name: end?.name ?? null,
+      available: route.status === 1 && route.deleted_at === null,
     };
   }
 

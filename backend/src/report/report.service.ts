@@ -15,7 +15,7 @@ export class ReportService {
     private readonly rateLimits: RateLimitService,
   ) {}
   async create(reporterId: bigint, ip: string, dto: CreateReportDto) {
-    if (dto.content_type.startsWith('forum_')) {
+    if (dto.content_type.startsWith('forum_') || dto.content_type === 'route_comment') {
       await this.rateLimits.consume({
         scope: 'forum.report.minute',
         subject: `${reporterId.toString()}:${ip}`,
@@ -128,6 +128,79 @@ export class ReportService {
           captured_at: new Date().toISOString(),
         },
       };
+    } else if (dto.content_type === 'route_comment') {
+      const comment = await this.prisma.routeComment.findFirst({
+        where: {
+          id: contentId,
+          status: 1,
+          published_at: { not: null },
+          deleted_at: null,
+          OR: [
+            { route: { status: 1, deleted_at: null } },
+            { user_route: { visibility: 2, status: 1 } },
+          ],
+        },
+        select: {
+          id: true,
+          route_id: true,
+          user_route_id: true,
+          user_id: true,
+          content: true,
+          status: true,
+          report_count: true,
+          moderation_status: true,
+        },
+      });
+      if (!comment) throw new AppException(54001, '评论不存在或已失效', HttpStatus.NOT_FOUND);
+      if (comment.user_id === reporterId) throw new AppException(1001, '不能举报自己的评论');
+      const dedupeKey = `route-comment:${reporterId.toString()}:${comment.id.toString()}`;
+      const existing = await this.prisma.report.findUnique({
+        where: { route_comment_dedupe_key: dedupeKey },
+      });
+      if (existing) {
+        return { id: existing.id.toString(), status: existing.status, replayed: true };
+      }
+      try {
+        const report = await this.prisma.$transaction(async (tx) => {
+          const created = await tx.report.create({
+            data: {
+              reporter: { connect: { id: reporterId } },
+              reported_user: { connect: { id: comment.user_id } },
+              content_type: 'route_comment',
+              content_id: comment.id,
+              route_comment_dedupe_key: dedupeKey,
+              reason: dto.reason,
+              description: dto.description,
+              evidence_snapshot: {
+                source: 'route',
+                target_type: 'route_comment',
+                target_id: comment.id.toString(),
+                route_id: comment.route_id?.toString() ?? null,
+                user_route_id: comment.user_route_id?.toString() ?? null,
+                author_id: comment.user_id.toString(),
+                content_hash: this.digest(comment.content),
+                status: comment.status,
+                report_count: comment.report_count,
+                captured_at: new Date().toISOString(),
+              },
+            },
+          });
+          await tx.routeComment.update({
+            where: { id: comment.id },
+            data: { report_count: { increment: 1 }, reported_at: new Date() },
+          });
+          return created;
+        });
+        return { id: report.id.toString(), status: report.status, replayed: false };
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+          const replay = await this.prisma.report.findUnique({
+            where: { route_comment_dedupe_key: dedupeKey },
+          });
+          if (replay) return { id: replay.id.toString(), status: replay.status, replayed: true };
+        }
+        throw error;
+      }
     } else {
       const user = await this.prisma.user.findFirst({ where: { id: contentId, deleted_at: null } });
       if (!user) throw new AppException(8001, '用户不存在', HttpStatus.NOT_FOUND);
@@ -195,8 +268,11 @@ export class ReportService {
     const report = await this.prisma.report.findFirst({ where: { id, deleted_at: null } });
     if (!report) throw new AppException(8003, '举报不存在', HttpStatus.NOT_FOUND);
     if (report.status !== 0) throw new AppException(1001, '举报已处理');
-    if (report.content_type.startsWith('forum_') && !dto.handling_note?.trim()) {
-      throw new AppException(53009, '论坛举报处置原因必填', HttpStatus.BAD_REQUEST);
+    if (
+      (report.content_type.startsWith('forum_') || report.content_type === 'route_comment') &&
+      !dto.handling_note?.trim()
+    ) {
+      throw new AppException(53009, 'UGC 举报处置原因必填', HttpStatus.BAD_REQUEST);
     }
     await this.prisma.$transaction(async (tx) => {
       if (dto.action === 'offline') {
@@ -240,6 +316,15 @@ export class ReportService {
             });
           }
         }
+        if (report.content_type === 'route_comment' && report.content_id)
+          await tx.routeComment.update({
+            where: { id: report.content_id },
+            data: {
+              deleted_at: new Date(),
+              published_at: null,
+              offline_reason: dto.handling_note ?? '举报处置下架',
+            },
+          });
       }
       if (dto.action === 'ban') {
         const userId =

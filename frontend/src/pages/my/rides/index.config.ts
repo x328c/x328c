@@ -1,1 +1,1 @@
-export default definePageConfig({navigationBarTitleText:'我的约骑'});
+export default definePageConfig({navigationBarTitleText:'我的同行'});

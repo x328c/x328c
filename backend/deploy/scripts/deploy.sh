@@ -25,9 +25,10 @@ docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" ps
 
 echo "等待公开健康检查接口就绪..."
 for _ in {1..30}; do
-  if curl --fail --silent --show-error http://127.0.0.1/healthz; then
+  if curl --fail --silent --show-error http://127.0.0.1/healthz \
+    && curl --fail --silent --show-error --output /dev/null http://127.0.0.1/admin/; then
     echo
-    echo "Deployment succeeded."
+    echo "Deployment succeeded: API and admin console are ready."
     exit 0
   fi
   sleep 2

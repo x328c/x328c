@@ -1,0 +1,7 @@
+@use "../../../styles/tokens" as *;
+.accident-guide { min-height: 100vh; padding: $space-4; background: $color-bg; }
+.accident-guide__stale, .accident-guide__alert { margin-bottom: $space-3; padding: $space-4; border: 1px solid #f6c453; border-radius: $radius-md; background: #fff8e6; color: #684200; line-height: 1.65; }
+.accident-guide__alert Text, .accident-guide__copy, .accident-guide__item { display: block; margin-bottom: $space-2; font-size: 25px; line-height: 1.65; }
+.accident-guide__section { margin-bottom: $space-3; padding: $space-4; border-radius: $radius-md; background: #fff; }
+.accident-guide__title { display: block; margin-bottom: $space-3; font-size: 30px; font-weight: 700; }
+.accident-guide__feedback { padding: $space-4; color: $link; text-align: center; }

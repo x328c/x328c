@@ -1,4 +1,4 @@
 export default definePageConfig({
-  navigationBarTitleText: "约骑详情",
+  navigationBarTitleText: "同行详情",
   enableShareAppMessage: true,
 });

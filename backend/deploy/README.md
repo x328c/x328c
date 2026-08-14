@@ -1,6 +1,6 @@
 # Ubuntu 24.04 + Docker 29 生产部署
 
-本部署包会在一台服务器上运行 NestJS 后端、MySQL 8、Redis 7 与 Nginx。
+本部署包会在一台服务器上运行 NestJS 后端、React 管理后台、MySQL 8、Redis 7 与 Nginx。
 仅 Nginx 绑定宿主机端口（`80`）；MySQL、Redis 与 NestJS 的 `3000` 端口只在
 Docker 内部网络中可访问。
 
@@ -26,14 +26,19 @@ bash deploy/scripts/deploy.sh
 ```
 
 初始化脚本会生成独立的 MySQL、Redis、JWT 随机密钥，并将 `.env.production` 权限设置为
-`600`。部署前必须填写生产微信登录和 COS 配置；若启用内容安全，还需填写腾讯云 CMS
-密钥并设置 `CONTENT_SECURITY_ENABLED=true`。
+`600`。部署前必须填写生产微信登录和 COS 配置。系统不再调用腾讯云内容审核服务。
 
 `deploy.sh` 会构建镜像、等待 Prisma 迁移与容器健康检查，然后请求
 `http://127.0.0.1/healthz` 验证部署。HTTPS 配置完成前，公开健康检查地址为：
 
 ```text
 http://<服务器地址>/api/v1/health
+```
+
+管理后台部署在同一域名的 `/admin/` 路径：
+
+```text
+http://<服务器地址>/admin/
 ```
 
 ## HTTPS 与后续更新

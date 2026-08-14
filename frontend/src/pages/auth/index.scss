@@ -56,11 +56,22 @@
     &::after { border: 0; }
   }
 
+  &__consent { display: flex; align-items: flex-start; justify-content: center; gap: 14rpx; margin-top: 28rpx; }
+  &__checkbox { box-sizing: border-box; width: 32rpx; height: 32rpx; flex: 0 0 32rpx; margin-top: 3rpx; border: 2rpx solid tokens.$ink-400; border-radius: 50%; color: #fff; font-size: 22rpx; text-align: center; line-height: 28rpx; }
+  &__checkbox--checked { border-color: tokens.$action-orange; background: tokens.$action-orange; }
   &__agreement {
-    display: block;
-    margin-top: 28rpx;
+    max-width: 570rpx;
     color: tokens.$ink-400;
     font-size: 22rpx;
-    text-align: center;
+    line-height: 1.6;
   }
+  &__link { color: tokens.$action-orange; }
+  &__privacy-dialog { position: fixed; z-index: 50; inset: 0; display: grid; place-items: center; padding: 48rpx; }
+  &__privacy-mask { position: absolute; inset: 0; background: rgb(0 0 0 / 48%); }
+  &__privacy-panel { position: relative; box-sizing: border-box; width: 100%; padding: 40rpx 36rpx 32rpx; border-radius: 24rpx; background: #fff; }
+  &__privacy-title, &__privacy-copy, &__privacy-link { display: block; }
+  &__privacy-title { color: tokens.$ink-900; font-size: 34rpx; font-weight: 700; }
+  &__privacy-copy { margin-top: 24rpx; color: tokens.$ink-600; font-size: 26rpx; line-height: 1.7; }
+  &__privacy-link { margin-top: 22rpx; color: tokens.$action-orange; font-size: 26rpx; }
+  &__privacy-confirm { height: 80rpx; margin-top: 30rpx; border: 0; border-radius: 40rpx; background: tokens.$action-orange; color: #fff; font-size: 28rpx; line-height: 80rpx; &::after { border: 0; } }
 }

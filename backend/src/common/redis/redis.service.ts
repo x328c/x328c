@@ -10,6 +10,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(RedisService.name);
   private readonly client: Redis;
   private readonly subscriber: Redis;
+  private lastConnectionErrorLogAt = 0;
 
   constructor(configService: ConfigService) {
     const port = Number(configService.get<string>('REDIS_PORT', '6379'));
@@ -22,9 +23,12 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       enableReadyCheck: true,
       lazyConnect: true,
       connectTimeout: 10_000,
+      retryStrategy: (attempt: number) => Math.min(attempt * 200, 5_000),
     };
     this.client = new Redis({ ...options, connectionName: 'jiangxing-command' });
     this.subscriber = new Redis({ ...options, connectionName: 'jiangxing-subscriber' });
+    this.bindConnectionEvents(this.client, 'command');
+    this.bindConnectionEvents(this.subscriber, 'subscriber');
   }
 
   async onModuleInit(): Promise<void> {
@@ -34,7 +38,33 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy(): Promise<void> {
-    await Promise.all([this.client.quit(), this.subscriber.quit()]);
+    await Promise.all([this.close(this.client), this.close(this.subscriber)]);
+  }
+
+  private bindConnectionEvents(connection: Redis, name: string): void {
+    // ioredis 的 error 事件若没有监听器会直接向 stderr 持续输出
+    // “Unhandled error event”。这里只记录脱敏且限频的状态，连接仍按策略重试。
+    connection.on('error', (error: Error) => {
+      const now = Date.now();
+      if (now - this.lastConnectionErrorLogAt < 10_000) return;
+      this.lastConnectionErrorLogAt = now;
+      this.logger.warn({
+        event: 'redis_connection_error',
+        connection: name,
+        code: 'code' in error ? String(error.code) : 'unknown',
+      });
+    });
+    connection.on('ready', () => {
+      this.logger.log(`Redis ${name} connection is ready`);
+    });
+  }
+
+  private async close(connection: Redis): Promise<void> {
+    if (connection.status === 'ready') {
+      await connection.quit().catch(() => connection.disconnect());
+      return;
+    }
+    connection.disconnect();
   }
 
   async get(key: string): Promise<string | null> {

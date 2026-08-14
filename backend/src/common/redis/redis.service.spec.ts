@@ -12,6 +12,15 @@ describe('RedisService resilience helpers', () => {
     withLock: RedisService['withLock'];
   };
 
+  it('registers error listeners so connection failures are handled by the service', () => {
+    const service = new RedisService(config) as unknown as {
+      client: { listenerCount: (event: string) => number };
+      subscriber: { listenerCount: (event: string) => number };
+    };
+    expect(service.client.listenerCount('error')).toBeGreaterThan(0);
+    expect(service.subscriber.listenerCount('error')).toBeGreaterThan(0);
+  });
+
   it('adds bounded TTL jitter to cache writes', async () => {
     const service = new RedisService(config) as unknown as TestService;
     service.client = { set: jest.fn().mockResolvedValue('OK') };
