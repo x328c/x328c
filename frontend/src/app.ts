@@ -1,8 +1,9 @@
-import type { PropsWithChildren } from "react";
+import { createElement, Fragment, type PropsWithChildren } from "react";
 import Taro, { useLaunch } from "@tarojs/taro";
 import { notificationService } from "@/services/notifications";
 import { useNotificationStore } from "@/stores/notification-store";
 import { useUserStore } from "@/stores/user-store";
+import { SafetyAgreementDialog } from "@/components/SafetyAgreementDialog";
 
 import "./app.scss";
 
@@ -27,7 +28,7 @@ function App({ children }: PropsWithChildren) {
     }).catch(() => undefined);
   });
 
-  return children;
+  return createElement(Fragment, null, children, createElement(SafetyAgreementDialog));
 }
 
 export default App;

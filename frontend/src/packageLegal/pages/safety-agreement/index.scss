@@ -1,0 +1,21 @@
+@use "../../../styles/tokens" as *;
+
+.safety-document {
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding: 28rpx 32rpx;
+  background: #fff;
+  color: $color-text;
+
+  &--empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28rpx; color: $color-text-secondary; }
+  &__meta { margin-bottom: 28rpx; padding: 22rpx 24rpx; border-left: 6rpx solid $color-brand-strong; border-radius: 0 14rpx 14rpx 0; background: $color-brand-soft; }
+  &__meta Text { display: block; color: $color-text-secondary; font-size: 23rpx; line-height: 1.6; }
+  &__title, &__heading, &__paragraph { display: block; }
+  &__title { margin: 18rpx 0 28rpx; font-size: 38rpx; font-weight: 750; text-align: center; }
+  &__heading { margin: 36rpx 0 14rpx; color: $color-brand-strong; font-size: 30rpx; font-weight: 700; }
+  &__paragraph { margin-top: 12rpx; color: $color-text-secondary; font-size: 27rpx; line-height: 1.8; text-align: justify; }
+  &__back { color: $color-brand-strong; }
+  &__footer-space { height: 150rpx; }
+  &__footer { position: fixed; z-index: 5; right: 0; bottom: 0; left: 0; padding: 18rpx 28rpx calc(18rpx + env(safe-area-inset-bottom)); background: #fff; box-shadow: 0 -4rpx 20rpx rgb(31 31 31 / 10%); }
+  &__footer Text { display: block; padding: 24rpx; border-radius: 14rpx; background: $color-brand-strong; color: #fff; font-size: 29rpx; font-weight: 700; text-align: center; }
+}

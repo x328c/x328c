@@ -1,0 +1,28 @@
+@use "../../styles/tokens" as *;
+
+.safety-confirm {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32rpx;
+
+  &__mask { position: absolute; inset: 0; background: rgb(0 0 0 / 52%); }
+  &__panel { position: relative; box-sizing: border-box; width: 100%; max-height: 86vh; padding: 38rpx 32rpx 26rpx; overflow: hidden; border-radius: 28rpx; background: #fff; box-shadow: 0 20rpx 60rpx rgb(0 0 0 / 22%); }
+  &__eyebrow, &__title, &__target, &__content Text, &__hint { display: block; }
+  &__eyebrow { color: $color-brand-strong; font-size: 22rpx; font-weight: 650; text-align: center; }
+  &__title { margin-top: 8rpx; color: $color-text; font-size: 36rpx; font-weight: 750; text-align: center; }
+  &__target { margin-top: 16rpx; color: $color-text-secondary; font-size: 24rpx; line-height: 1.5; text-align: center; }
+  &__content { box-sizing: border-box; max-height: 48vh; margin-top: 24rpx; padding: 24rpx; overflow-y: auto; border-radius: 18rpx; background: #f7f7f7; color: $color-text-secondary; }
+  &__content Text { font-size: 25rpx; line-height: 1.65; }
+  &__subtitle { margin-top: 18rpx; color: $color-text; font-weight: 700; }
+  &__notice { margin-top: 18rpx; padding-top: 18rpx; border-top: 1rpx solid $color-border; color: #8a3b00; font-weight: 600; }
+  &__actions { display: flex; gap: 12rpx; margin-top: 24rpx; }
+  &__button { display: flex; flex: 1; align-items: center; justify-content: center; min-height: 76rpx; border-radius: 14rpx; font-size: 25rpx; font-weight: 650; }
+  &__button--quiet { color: $color-text-secondary; background: #f2f2f2; }
+  &__button--link { color: $color-brand-strong; background: $color-brand-soft; }
+  &__button--primary { color: #fff; background: $color-brand-strong; }
+  &__hint { margin-top: 16rpx; color: $color-text-tertiary; font-size: 21rpx; line-height: 1.5; text-align: center; }
+}

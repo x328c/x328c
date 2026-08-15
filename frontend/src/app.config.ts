@@ -76,7 +76,7 @@ export default defineAppConfig({
     },
     {
       root: "packageLegal",
-      pages: ["pages/document/index"],
+      pages: ["pages/document/index", "pages/safety-agreement/index"],
     },
   ],
   window: {
