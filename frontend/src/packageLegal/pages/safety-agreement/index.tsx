@@ -1,7 +1,7 @@
 import { Text, View } from "@tarojs/components";
 import Taro, { useLoad } from "@tarojs/taro";
 import { useState } from "react";
-import { FULL_AGREEMENT_STORAGE_KEY } from "@/stores/safety-agreement-store";
+import { FULL_AGREEMENT_STORAGE_KEY } from "@/services/safety";
 import type { SafetyAgreement } from "@/types/api";
 import "./index.scss";
 
@@ -44,7 +44,7 @@ export default function SafetyAgreementPage() {
     {parseContent(agreement.content).map((line, index) => <Text key={`${line.kind}-${index}`} className={`safety-document__${line.kind}`}>{line.text}</Text>)}
     <View className="safety-document__footer-space" />
     <View className="safety-document__footer">
-      <Text onClick={() => void Taro.navigateBack()}>返回确认</Text>
+      <Text onClick={() => void Taro.navigateBack()}>返回上一页</Text>
     </View>
   </View>;
 }
