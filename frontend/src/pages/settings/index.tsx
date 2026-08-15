@@ -1,4 +1,4 @@
-import { Picker, Switch, Text, Textarea, View } from "@tarojs/components";
+import { Picker, Text, Textarea, View } from "@tarojs/components";
 import Taro, { useLoad } from "@tarojs/taro";
 import { useState } from "react";
 import { logout } from "@/services/auth";
@@ -66,7 +66,20 @@ export default function Settings() {
   const openLegal = (type: "user-agreement" | "privacy-policy" | "safety-notice") =>
     Taro.navigateTo({ url: legalDocumentUrl(type) });
   const section = (title: string, children: React.ReactNode) => <View className="settings__section"><Text className="settings__heading">{title}</Text>{children}</View>;
-  const toggle = (title: string, key: keyof Pick<UserSettings, "contact_visible" | "ride_notifications" | "activity_notifications" | "system_notifications">) => <View className="settings__row"><Text>{title}</Text><Switch checked={settings[key]} color="#FF6A00" onChange={(event) => void update({ [key]: event.detail.value })} /></View>;
+  // 不使用小程序原生 Switch：在部分真机环境中，受控 checked 值在页面初次
+  // 回填和销毁时会额外触发 change，造成“展示联系方式”被自动改写。
+  const toggle = (title: string, key: keyof Pick<UserSettings, "contact_visible" | "ride_notifications" | "activity_notifications" | "system_notifications">) => {
+    const checked = settings[key];
+    return <View className="settings__row">
+      <Text>{title}</Text>
+      <View
+        className={`settings__switch ${checked ? "settings__switch--on" : ""}`}
+        role="switch"
+        aria-checked={checked}
+        onClick={() => void update({ [key]: !checked })}
+      ><View className="settings__switch-thumb" /></View>
+    </View>;
+  };
   return <View className="settings">
     {section("账号与安全", <><View className="settings__row"><Text>账号状态</Text><Text>已登录</Text></View><View className="settings__row" onClick={() => void handleCloseAccount()}><Text>账号注销与信息删除</Text><Text>申请注销 ›</Text></View></>)}
     {section("隐私与个人信息", <><Picker mode="selector" range={visibility.map((item) => item.label)} value={Math.max(0, visibility.findIndex((item) => item.value === settings.profile_visibility))} onChange={(event) => void update({ profile_visibility: visibility[Number(event.detail.value)].value })}><View className="settings__row"><Text>个人资料公开范围</Text><Text>{visibility.find((item) => item.value === settings.profile_visibility)?.label} ›</Text></View></Picker>{toggle("展示联系方式", "contact_visible")}<View className="settings__row" onClick={() => void openLegal("privacy-policy")}><Text>隐私政策与个人信息清单</Text><Text>完整内容 ›</Text></View><View className="settings__hint">个人位置用于附近功能前会模糊偏移；相册、位置等权限仅在使用对应功能时申请，可随时在微信设置中撤回。</View></>)}
