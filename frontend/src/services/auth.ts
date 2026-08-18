@@ -22,7 +22,6 @@ export async function ensureLogin(force = false): Promise<void> {
 }
 
 export async function loginWithWechat(
-  userInfo: { nickName: string; avatarUrl: string } | undefined,
   legalConsent: LegalConsent,
 ): Promise<void> {
   const login = await Taro.login();
@@ -32,9 +31,6 @@ export async function loginWithWechat(
     url: `${API_BASE}/auth/wx-login`,
     data: {
       code: login.code,
-      ...(userInfo
-        ? { nickname: userInfo.nickName, avatar_url: userInfo.avatarUrl }
-        : {}),
       legal_consent: legalConsent,
     },
   });

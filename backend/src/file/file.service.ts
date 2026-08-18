@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { sts } from 'tencentcloud-sdk-nodejs-sts';
 import { randomUUID } from 'crypto';
 import axios from 'axios';
+import COS from 'cos-nodejs-sdk-v5';
 import { AppException } from '../common/exceptions/app.exception';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { UploadCallbackDto, UploadSignatureDto } from './dto';
@@ -33,6 +34,7 @@ export class FileService {
       file_url: this.originUrl(key, bucket, region),
       cdn_url: this.cdnUrl(key),
       expires_in: 1800,
+      start_time: Math.floor(Date.now() / 1000) - 30,
       max_file_size: MAX_IMAGE_SIZE,
     };
   }
@@ -47,11 +49,8 @@ export class FileService {
     const region = this.config.getOrThrow<string>('COS_REGION');
     const expected = this.originUrl(dto.file_key, bucket, region);
     if (dto.file_url !== expected) throw new AppException(1001, '文件地址与存储路径不匹配');
-    if (
-      dto.file_key.startsWith('route-comments/') ||
-      dto.file_key.startsWith('user-routes/')
-    ) {
-      await this.verifyUploadedImage(dto.file_url, dto.file_type);
+    if (dto.file_key.startsWith('route-comments/') || dto.file_key.startsWith('user-routes/')) {
+      await this.verifyUploadedImage(dto.file_url, dto.file_key, bucket, region, dto.file_type);
     }
     const cdnUrl = this.cdnUrl(dto.file_key);
     const record = await this.prisma.fileRecord.upsert({
@@ -141,10 +140,28 @@ export class FileService {
     return `https://${domain}/${key}`;
   }
 
-  private async verifyUploadedImage(url: string, expectedMime: string): Promise<void> {
+  private async verifyUploadedImage(
+    url: string,
+    key: string,
+    bucket: string,
+    region: string,
+    expectedMime: string,
+  ): Promise<void> {
     let bytes: Buffer;
     try {
-      const response = await axios.get<ArrayBuffer>(url, {
+      const secretId = this.config.get<string>('COS_SECRET_ID');
+      const secretKey = this.config.get<string>('COS_SECRET_KEY');
+      const verificationUrl =
+        secretId && secretKey
+          ? new COS({ SecretId: secretId, SecretKey: secretKey }).getObjectUrl({
+              Bucket: bucket,
+              Region: region,
+              Key: key,
+              Sign: true,
+              Expires: 60,
+            })
+          : url;
+      const response = await axios.get<ArrayBuffer>(verificationUrl, {
         responseType: 'arraybuffer',
         headers: { Range: 'bytes=0-131071' },
         timeout: 5000,

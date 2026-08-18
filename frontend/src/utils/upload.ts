@@ -16,6 +16,7 @@ interface UploadSignature {
   file_key: string;
   file_url: string;
   expired_time?: number | string;
+  start_time?: number | string;
 }
 interface UploadCallback {
   id: string;
@@ -43,12 +44,13 @@ export async function uploadImage(
   const now = Math.floor(Date.now() / 1000);
   const expiresAt = normalizeExpireTime(signature.expired_time, now + 1800);
   const cos = new COS({
+    SimpleUploadMethod: "putObject",
     getAuthorization: (_options, callback) =>
       callback({
         TmpSecretId: signature.credentials.tmp_secret_id,
         TmpSecretKey: signature.credentials.tmp_secret_key,
         SecurityToken: signature.credentials.session_token,
-        StartTime: now - 5,
+        StartTime: normalizeStartTime(signature.start_time, now - 30),
         ExpiredTime: expiresAt,
       }),
   });
@@ -61,7 +63,7 @@ export async function uploadImage(
         FilePath: filePath,
         ContentType: fileType,
       },
-      (error) => (error ? reject(error) : resolve()),
+      (error) => (error ? reject(new Error(uploadErrorMessage(error))) : resolve()),
     ),
   );
   const callback = await request<UploadCallback>({
@@ -102,4 +104,22 @@ function normalizeExpireTime(value: number | string | undefined, fallback: numbe
   return Number.isFinite(result) && result > Math.floor(Date.now() / 1000)
     ? Math.floor(result)
     : fallback;
+}
+
+function normalizeStartTime(value: number | string | undefined, fallback: number): number {
+  const result = Number(value);
+  return Number.isFinite(result) && result > 0 ? Math.floor(result) : fallback;
+}
+
+function uploadErrorMessage(error: unknown): string {
+  const record = error as {
+    error?: { Code?: string; Message?: string };
+    errMsg?: string;
+    statusCode?: number;
+  };
+  const code = record?.error?.Code;
+  if (code === "AccessDenied") return "COS 上传权限不足，请检查临时密钥权限";
+  if (code === "RequestTimeTooSkewed" || code === "RequestExpired") return "设备时间异常，请校准系统时间后重试";
+  if (record?.statusCode === 403) return "COS 拒绝上传，请检查存储桶权限与小程序域名配置";
+  return record?.error?.Message || record?.errMsg || "图片上传失败，请稍后重试";
 }

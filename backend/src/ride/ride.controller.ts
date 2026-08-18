@@ -13,6 +13,7 @@ import {
 import { Request } from 'express';
 import { JwtPayload } from '../auth/entity/auth-token.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import {
   CreateRideDto,
   MyRideQueryDto,
@@ -21,6 +22,7 @@ import {
   RemoveParticipantDto,
   RideQueryDto,
   UpdateRideDto,
+  TransferCreatorDto,
 } from './dto';
 import { RideService } from './ride.service';
 import { getRequestId } from '../common/request/request-context';
@@ -74,6 +76,19 @@ export class RideController {
   cancel(@Req() request: Request & { user: JwtPayload }, @Param() params: EntityIdParamDto) {
     return this.rideService.cancel(BigInt(request.user.sub), BigInt(params.id));
   }
+  @Post(':id/transfer-creator')
+  @UseGuards(JwtAuthGuard)
+  transferCreator(
+    @Req() request: Request & { user: JwtPayload },
+    @Param() params: EntityIdParamDto,
+    @Body() dto: TransferCreatorDto,
+  ) {
+    return this.rideService.transferCreator(
+      BigInt(request.user.sub),
+      BigInt(params.id),
+      BigInt(dto.target_user_id),
+    );
+  }
   @Post(':id/join')
   @UseGuards(JwtAuthGuard)
   join(
@@ -108,7 +123,12 @@ export class RideController {
       BigInt(dto.user_id),
     );
   }
-  @Get(':id') detail(@Param() params: EntityIdParamDto) {
-    return this.rideService.detail(BigInt(params.id));
+  @Get(':id')
+  @UseGuards(OptionalJwtAuthGuard)
+  detail(@Req() request: Request & { user?: JwtPayload }, @Param() params: EntityIdParamDto) {
+    return this.rideService.detail(
+      BigInt(params.id),
+      request.user ? BigInt(request.user.sub) : undefined,
+    );
   }
 }

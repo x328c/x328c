@@ -57,14 +57,20 @@ export class UserService {
     const setting = await this.prisma.userSetting.findUnique({ where: { user_id: userId } });
     const visibility = setting?.profile_visibility ?? 'public';
     const isOwner = viewerId === userId;
-    const needsRelationship = visibility === 'participants' || Boolean(setting?.contact_visible);
+    const needsRelationship =
+      visibility === 'participants' ||
+      profile?.wechat_visible === 1 ||
+      Boolean(setting?.contact_visible);
     const sharesActivity =
       isOwner || (needsRelationship && (await this.hasSharedParticipation(viewerId, userId)));
     if (!isOwner && visibility === 'private')
       throw new AppException(2003, '该用户已隐藏个人资料', HttpStatus.FORBIDDEN);
     if (!isOwner && visibility === 'participants' && !sharesActivity)
       throw new AppException(2003, '仅共同同行或活动参与者可查看', HttpStatus.FORBIDDEN);
-    const canViewWechat = isOwner || Boolean(setting?.contact_visible && sharesActivity);
+    const canViewWechat =
+      isOwner ||
+      profile?.wechat_visible === 2 ||
+      Boolean((profile?.wechat_visible === 1 || setting?.contact_visible) && sharesActivity);
     const canViewLocation = profile?.location_visible === 2;
 
     return {
@@ -86,6 +92,18 @@ export class UserService {
           ? { lat: profile.location_lat.toString(), lng: profile.location_lng.toString() }
           : null,
     };
+  }
+
+  /** 按资料中的微信号可见范围返回联系方式，供同行详情等场景复用。 */
+  async getVisibleWechat(viewerId: bigint | undefined, userId: bigint): Promise<string | null> {
+    const user = await this.findActiveUser(userId);
+    const profile = user.profile;
+    if (!profile?.wechat_id) return null;
+    if (viewerId === userId || profile.wechat_visible === 2) return profile.wechat_id;
+    if (!viewerId) return null;
+    const setting = await this.prisma.userSetting.findUnique({ where: { user_id: userId } });
+    if (profile.wechat_visible !== 1 && !setting?.contact_visible) return null;
+    return (await this.hasSharedParticipation(viewerId, userId)) ? profile.wechat_id : null;
   }
 
   async updateLocation(userId: bigint, dto: UpdateLocationDto) {

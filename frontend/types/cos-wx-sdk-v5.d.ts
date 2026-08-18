@@ -1,6 +1,7 @@
 declare module "cos-wx-sdk-v5" {
   export default class COS {
     constructor(options: {
+      SimpleUploadMethod?: "putObject";
       getAuthorization: (
         options: unknown,
         callback: (authorization: Record<string, unknown>) => void,

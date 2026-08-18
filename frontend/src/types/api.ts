@@ -96,6 +96,7 @@ export interface CreateRidePayload {
   rules?: Record<string, unknown>;
   city_code: string;
   route_id?: string;
+  user_route_id?: string;
   route_link_source?: "route_detail" | "create_form";
   agreement?: AgreementProof;
 }
@@ -107,7 +108,7 @@ export interface SafetyAgreement extends AgreementProof {
 }
 export interface RouteLinkSummary {
   id: string; title: string; city_code?: string | null; city_name?: string | null;
-  difficulty?: string | null; distance_km?: string | null; start_name?: string | null;
+  source_type: "official" | "user"; difficulty?: string | number | null; distance_km?: string | null; start_name?: string | null;
   end_name?: string | null; available: boolean;
 }
 export interface NotificationItem { id: string; type: number; title: string; content: string; related_type?: "ride" | "activity" | null; related_id?: string | null; is_read: boolean; unread_dot: boolean; created_at: string; }

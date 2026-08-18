@@ -84,8 +84,8 @@ export default function RouteDetailPage() {
 
   const createFromRoute = () => {
     if (!route) return;
-    const link: RouteLinkSummary = { id: route.id, title: route.title, city_code: route.city_code, city_name: route.city_name, difficulty: route.difficulty, distance_km: route.distance_km, start_name: route.points.find((point) => point.type === "start")?.name, end_name: route.points.find((point) => point.type === "end")?.name, available: true };
-    Taro.setStorageSync("v21:create-route", link);
+    const link: RouteLinkSummary = { id: route.id, source_type: "official", title: route.title, city_code: route.city_code, city_name: route.city_name, difficulty: route.difficulty, distance_km: route.distance_km, start_name: route.points.find((point) => point.type === "start")?.name, end_name: route.points.find((point) => point.type === "end")?.name, available: true };
+    Taro.setStorageSync("v22:create-route", link);
     trackRouteEvent("route_create_companion_click", { route_id: route.id });
     void Taro.navigateTo({ url: `/pages/rides/create/index?routeId=${route.id}` });
   };

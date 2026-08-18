@@ -4,8 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { RIDE_STYLES } from "@/constants";
 import { rideService } from "@/services/rides";
 import { routeService } from "@/services/routes";
+import { userRouteService } from "@/services/user-routes";
 import { confirmSafetyAgreement } from "@/services/safety";
-import type { CreateRidePayload, RideSummary, RouteDetail } from "@/types/api";
+import type { CreateRidePayload, RideSummary } from "@/types/api";
 import "./index.scss";
 
 const CITY_CODE = "650100";
@@ -32,6 +33,14 @@ interface RideForm {
   description: string;
 }
 
+interface LinkedRoute {
+  id: string;
+  source_type: "official" | "user";
+  title: string;
+  start?: { name: string; latitude: number; longitude: number };
+  end?: { name: string; latitude: number; longitude: number };
+}
+
 export default function CreateRidePage() {
   const [form, setForm] = useState<RideForm>(() => ({
     title: "", rideStyle: 0, ...futureTime(), meetupAddress: "", destination: "",
@@ -39,32 +48,47 @@ export default function CreateRidePage() {
   }));
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated] = useState<RideSummary | undefined>(undefined);
-  const [selectedRoute, setSelectedRoute] = useState<RouteDetail>();
+  const [selectedRoute, setSelectedRoute] = useState<LinkedRoute>();
+
+  const loadLinkedRoute = useCallback(async (source: "official" | "user", id: string) => {
+    if (source === "user") {
+      const route = await userRouteService.detail(id);
+      return {
+        id: route.id, source_type: source, title: route.title,
+        start: { name: route.start_location, latitude: route.start_lat, longitude: route.start_lng },
+        end: route.end_location && route.end_lat != null && route.end_lng != null ? { name: route.end_location, latitude: route.end_lat, longitude: route.end_lng } : undefined,
+      } satisfies LinkedRoute;
+    }
+    const route = await routeService.detail(id);
+    const start = route.points.find((point) => point.type === "start") ?? route.points[0];
+    const end = route.points.find((point) => point.type === "end") ?? route.points[route.points.length - 1];
+    return {
+      id: route.id, source_type: source, title: route.title,
+      start: start ? { name: start.name, latitude: Number(start.latitude), longitude: Number(start.longitude) } : undefined,
+      end: end ? { name: end.name, latitude: Number(end.latitude), longitude: Number(end.longitude) } : undefined,
+    } satisfies LinkedRoute;
+  }, []);
+
+  const applyLinkedRoute = useCallback((route: LinkedRoute) => {
+    setSelectedRoute(route);
+    setForm((current) => ({
+      ...current,
+      meetupAddress: route.start?.name ?? current.meetupAddress,
+      meetupLat: route.start?.latitude ?? current.meetupLat,
+      meetupLng: route.start?.longitude ?? current.meetupLng,
+      destination: route.end?.name ?? current.destination,
+    }));
+  }, []);
 
   useLoad((options) => {
     if (!options.routeId) return;
-    void routeService.detail(options.routeId).then((route) => {
-      setSelectedRoute(route);
-      const start = route.points.find((point) => point.type === "start") ?? route.points[0];
-      const end = route.points.find((point) => point.type === "end") ?? route.points[route.points.length - 1];
-      setForm((current) => ({
-        ...current,
-        meetupAddress: start?.name ?? current.meetupAddress,
-        meetupLat: start ? Number(start.latitude) : current.meetupLat,
-        meetupLng: start ? Number(start.longitude) : current.meetupLng,
-        destination: end?.name ?? current.destination,
-      }));
-    }).catch(() => Taro.showToast({ title: "关联路线已失效，可继续不关联发布", icon: "none" }));
+    const source = options.routeSource === "user" ? "user" : "official";
+    void loadLinkedRoute(source, options.routeId).then(applyLinkedRoute).catch(() => Taro.showToast({ title: "关联路线已失效，可继续不关联发布", icon: "none" }));
   });
   useDidShow(() => {
-    const stored = Taro.getStorageSync<{ id?: string }>("v21:create-route");
-    if (stored?.id && stored.id !== selectedRoute?.id) {
-      void routeService.detail(stored.id).then((route) => {
-        setSelectedRoute(route);
-        const start = route.points.find((point) => point.type === "start") ?? route.points[0];
-        const end = route.points.find((point) => point.type === "end") ?? route.points[route.points.length - 1];
-        setForm((current) => ({ ...current, meetupAddress: start?.name ?? current.meetupAddress, meetupLat: start ? Number(start.latitude) : current.meetupLat, meetupLng: start ? Number(start.longitude) : current.meetupLng, destination: end?.name ?? current.destination }));
-      });
+    const stored = Taro.getStorageSync<{ id?: string; source_type?: "official" | "user" }>("v22:create-route");
+    if (stored?.id && (stored.id !== selectedRoute?.id || stored.source_type !== selectedRoute?.source_type)) {
+      void loadLinkedRoute(stored.source_type ?? "official", stored.id).then(applyLinkedRoute).catch(() => Taro.removeStorageSync("v22:create-route"));
     }
   });
 
@@ -116,12 +140,16 @@ export default function CreateRidePage() {
         min_people: Number(form.minPeople), max_people: Number(form.maxPeople), speed_level: form.speedLevel,
         bike_requirement: form.bikeRequirement.trim() || undefined,
         description: form.description.trim() || undefined, city_code: CITY_CODE,
-        route_id: selectedRoute?.id,
+        ...(selectedRoute?.source_type === "user"
+          ? { user_route_id: selectedRoute.id }
+          : selectedRoute
+            ? { route_id: selectedRoute.id }
+            : {}),
         route_link_source: selectedRoute ? "route_detail" : undefined,
         agreement: confirmation?.agreement,
       };
       setCreated(await rideService.create(payload, confirmation?.idempotencyKey));
-      Taro.removeStorageSync("v21:create-route");
+      Taro.removeStorageSync("v22:create-route");
     } catch (requestError) {
       Taro.showToast({ title: requestError instanceof Error ? requestError.message : "发布失败，请稍后重试", icon: "none" });
     } finally { setSubmitting(false); }
@@ -137,7 +165,7 @@ export default function CreateRidePage() {
   return <View className="create-ride">
     <View className="create-ride__group"><Text className="create-ride__group-title">基本信息</Text>
       <View className="create-ride__field"><Text>同行标题</Text><Input value={form.title} maxlength={30} placeholder="如：南山周末轻松骑" onInput={(event) => update("title", event.detail.value)} /><Text className="create-ride__count">{form.title.length}/30</Text></View>
-      <View className="create-ride__field"><Text>关联路线（可选）</Text><Text className="create-ride__value">{selectedRoute?.title ?? "未选择"}</Text>{selectedRoute ? <Text onClick={() => { setSelectedRoute(undefined); Taro.removeStorageSync("v21:create-route"); }}>移除</Text> : <Text onClick={() => Taro.navigateTo({ url: "/packageRoutes/pages/select/index" })}>选择官方路线</Text>}</View>
+      <View className="create-ride__field"><Text>关联路线（可选）</Text><Text className="create-ride__value">{selectedRoute?.title ?? "未选择"}</Text>{selectedRoute ? <Text onClick={() => { setSelectedRoute(undefined); Taro.removeStorageSync("v22:create-route"); }}>移除</Text> : <Text onClick={() => Taro.navigateTo({ url: "/packageRoutes/pages/select/index" })}>选择路线</Text>}</View>
       <Text className="create-ride__label">骑行风格</Text><View className="create-ride__options">{Object.entries(RIDE_STYLES).map(([value, label]) => <Text key={value} className={form.rideStyle === Number(value) ? "create-ride__option create-ride__option--selected" : "create-ride__option"} onClick={() => update("rideStyle", Number(value))}>{label}</Text>)}</View>
     </View>
     <View className="create-ride__group"><Text className="create-ride__group-title">时间地点</Text>

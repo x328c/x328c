@@ -58,3 +58,35 @@ describe('UserService account closure', () => {
     expect(redis.geoRemove).toHaveBeenCalledWith('geo:users:650100', '7');
   });
 });
+
+describe('UserService contact visibility', () => {
+  const prisma = {
+    user: { findFirst: jest.fn() },
+    userSetting: { findUnique: jest.fn() },
+    ride: { findFirst: jest.fn() },
+    activity: { findFirst: jest.fn() },
+  } as unknown as PrismaService;
+  const service = new UserService(prisma, {} as RedisService);
+
+  beforeEach(() => jest.clearAllMocks());
+
+  it('returns a public WeChat ID to a ride-detail viewer', async () => {
+    (prisma.user.findFirst as jest.Mock).mockResolvedValue({
+      id: 9n,
+      status: 1,
+      profile: { wechat_id: 'public-contact', wechat_visible: 2 },
+    });
+    await expect(service.getVisibleWechat(undefined, 9n)).resolves.toBe('public-contact');
+    expect(prisma.userSetting.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('does not return a hidden WeChat ID', async () => {
+    (prisma.user.findFirst as jest.Mock).mockResolvedValue({
+      id: 9n,
+      status: 1,
+      profile: { wechat_id: 'hidden-contact', wechat_visible: 0 },
+    });
+    (prisma.userSetting.findUnique as jest.Mock).mockResolvedValue({ contact_visible: false });
+    await expect(service.getVisibleWechat(7n, 9n)).resolves.toBeNull();
+  });
+});

@@ -56,6 +56,19 @@ export const rideService = {
       method: "POST",
     });
   },
+  cancel(id: string) {
+    return request<{ success: true }>({
+      url: `${API_BASE}/rides/${id}/cancel`,
+      method: "POST",
+    });
+  },
+  transferCreator(id: string, targetUserId: string) {
+    return request<{ success: true; creator_id: string; creator_name: string }>({
+      url: `${API_BASE}/rides/${id}/transfer-creator`,
+      method: "POST",
+      data: { target_user_id: targetUserId },
+    });
+  },
   participants(id: string) {
     return request<RideParticipantsResponse>({
       url: `${API_BASE}/rides/${id}/participants`,

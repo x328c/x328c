@@ -13,6 +13,7 @@ import {
 import { Request } from 'express';
 import { JwtPayload } from '../auth/entity/auth-token.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { EntityIdParamDto } from '../common/dto/entity-id-param.dto';
 import { CreateRouteCommentDto, RouteCommentListDto } from './dto';
 import {
@@ -21,7 +22,6 @@ import {
   UserRouteMineQueryDto,
   UserRoutePublicQueryDto,
 } from './dto/user-route.dto';
-import { OptionalJwtAuthGuard } from './guards/optional-jwt-auth.guard';
 import { RouteCommentService } from './route-comment.service';
 import { UserRouteService } from './user-route.service';
 

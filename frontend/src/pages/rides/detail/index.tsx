@@ -25,6 +25,8 @@ export default function RideDetailPage() {
   const [showActions, setShowActions] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showCannotLeave, setShowCannotLeave] = useState(false);
+  const [showCreatorActions, setShowCreatorActions] = useState(false);
+  const [showTransfer, setShowTransfer] = useState(false);
   const cacheJoined = useRideInteractionStore((state) => state.setJoined);
   const cachedJoined = useRideInteractionStore((state) => state.joinedRideIds);
 
@@ -64,7 +66,7 @@ export default function RideDetailPage() {
 
   const canJoin = (ride.status === 1 || ride.status === 2) && !ride.is_full;
   const isCreator = useUserStore.getState().user?.id === ride.creator.id;
-  const actionText = joined ? "已报名" : ride.is_full ? "名额已满" : ride.status === 1 || ride.status === 2 ? "立即报名" : ride.status === 3 ? "同行进行中" : ride.status === 4 ? "同行已结束" : "同行已取消";
+  const actionText = isCreator && (ride.status === 1 || ride.status === 2) ? "管理同行" : joined ? "已报名" : ride.is_full ? "名额已满" : ride.status === 1 || ride.status === 2 ? "立即报名" : ride.status === 3 ? "同行进行中" : ride.status === 4 ? "同行已结束" : "同行已取消";
   const percentage = Math.min(100, Math.round((ride.join_count / ride.max_people) * 100));
   const description = ride.description || "发起人暂未填写同行说明。";
 
@@ -118,15 +120,32 @@ export default function RideDetailPage() {
     } finally { setJoining(false); }
   };
   const primaryAction = () => {
+    if (isCreator && (ride.status === 1 || ride.status === 2)) {
+      setShowCreatorActions(true);
+      return;
+    }
     if (joined) {
-      if (isCreator) {
-        Taro.showToast({ title: "您是发起人，已自动报名", icon: "none" });
-        return;
-      }
       setShowActions(true);
       return;
     }
     if (canJoin) setShowJoinConfirm(true);
+  };
+  const cancelRide = async () => {
+    setShowCreatorActions(false);
+    const result = await Taro.showModal({ title: "取消同行", content: "取消后会通知所有已报名成员，且无法恢复。确认取消吗？", confirmText: "确认取消", confirmColor: "#bd3a3a" });
+    if (!result.confirm) return;
+    setJoining(true);
+    try { await rideService.cancel(ride.id); Taro.showToast({ title: "同行已取消", icon: "success" }); await load(ride.id); }
+    catch (error) { Taro.showToast({ title: error instanceof Error ? error.message : "取消失败", icon: "none" }); }
+    finally { setJoining(false); }
+  };
+  const transfer = async (participant: RideParticipant) => {
+    const result = await Taro.showModal({ title: "转让发起人", content: `确认将“${ride.title}”转让给 ${participant.nickname}？转让后你将保留为普通成员。`, confirmText: "确认转让" });
+    if (!result.confirm) return;
+    setJoining(true);
+    try { await rideService.transferCreator(ride.id, participant.user_id); setShowTransfer(false); Taro.showToast({ title: "转让成功", icon: "success" }); await load(ride.id); }
+    catch (error) { Taro.showToast({ title: error instanceof Error ? error.message : "转让失败", icon: "none" }); }
+    finally { setJoining(false); }
   };
 
   return <View className="ride-detail">
@@ -145,7 +164,7 @@ export default function RideDetailPage() {
       <View className="ride-detail__people"><View className="ride-detail__people-title"><Text>报名进度</Text><Text>{ride.join_count}人 / 最多{ride.max_people}人</Text></View><Progress percent={percentage} strokeWidth={8} activeColor="#237804" backgroundColor="#e5ece7" /></View>
     </View>
 
-    {ride.route ? <View className="ride-detail__section" onClick={() => ride.route?.available && Taro.navigateTo({ url: `/packageRoutes/pages/detail/index?id=${ride.route.id}` })}><Text className="ride-detail__section-heading">关联路线</Text><Text>{ride.route.title}</Text><Text>{ride.route.available ? `${ride.route.start_name || "起点"} → ${ride.route.end_name || "终点"} ›` : "原关联路线已下架，同行信息仍以本页为准"}</Text></View> : null}
+    {ride.route ? <View className="ride-detail__section" onClick={() => ride.route?.available && Taro.navigateTo({ url: ride.route.source_type === "user" ? `/pages/routes/detail/index?id=${ride.route.id}` : `/packageRoutes/pages/detail/index?id=${ride.route.id}` })}><Text className="ride-detail__section-heading">关联路线</Text><Text>{ride.route.title}</Text><Text>{ride.route.available ? `${ride.route.start_name || "起点"} → ${ride.route.end_name || "终点"} ›` : "关联路线暂不可查看，同行信息仍以本页为准"}</Text></View> : null}
     <View className="ride-detail__section"><View className="ride-detail__section-title"><Text>已报名（{ride.join_count}人）</Text><Text onClick={() => Taro.navigateTo({ url: `/pages/rides/participants/index?id=${ride.id}` })}>查看全部 ›</Text></View><ScrollView scrollX className="ride-detail__avatars"><View className="ride-detail__avatars-inner">{participants.length ? participants.slice(0, 8).map((participant) => <View key={participant.user_id} className="ride-detail__participant-wrap">{participant.avatar_url ? <Image className="ride-detail__participant" src={participant.avatar_url} /> : <View className="ride-detail__participant ride-detail__participant--placeholder">{participant.nickname.slice(0, 1)}</View>}{participant.is_creator && <Text className="ride-detail__creator-badge">发起人</Text>}</View>) : <Text className="ride-detail__no-participant">暂时还没有人报名</Text>}</View></ScrollView></View>
     <View className="ride-detail__section"><Text className="ride-detail__section-heading">同行说明</Text><Text className={expanded ? "ride-detail__description ride-detail__description--expanded" : "ride-detail__description"}>{description}</Text>{description.length > 54 && <Text className="ride-detail__expand" onClick={() => setExpanded(!expanded)}>{expanded ? "收起" : "展开"}</Text>}</View>
     <View className="ride-detail__safety">安全提示：请遵守交通法规，佩戴头盔与护具，量力而行。</View>
@@ -154,5 +173,7 @@ export default function RideDetailPage() {
     <ConfirmDialog visible={showLeaveConfirm} title="确认取消报名" content="取消后将释放名额给其他骑友，确定要取消吗？" onCancel={() => setShowLeaveConfirm(false)} onConfirm={() => void leave()} />
     {showActions && <View className="ride-detail__sheet"><View className="ride-detail__sheet-mask" onClick={() => setShowActions(false)} /><View className="ride-detail__sheet-panel"><Text className="ride-detail__sheet-title">已报名</Text><Text className="ride-detail__sheet-action" onClick={requestLeave}>取消报名</Text><Text className="ride-detail__sheet-action" onClick={() => setShowActions(false)}>查看详情</Text><Text className="ride-detail__sheet-cancel" onClick={() => setShowActions(false)}>取消</Text></View></View>}
     {showCannotLeave && <View className="ride-detail__sheet"><View className="ride-detail__sheet-mask" onClick={() => setShowCannotLeave(false)} /><View className="ride-detail__sheet-panel"><Text className="ride-detail__sheet-title">暂时无法取消</Text><Text className="ride-detail__sheet-message">距离出发不足2小时，无法取消报名，请联系发起人说明情况</Text><Text className="ride-detail__sheet-action" onClick={() => { setShowCannotLeave(false); contact(); }}>联系发起人</Text><Text className="ride-detail__sheet-cancel" onClick={() => setShowCannotLeave(false)}>知道了</Text></View></View>}
+    {showCreatorActions && <View className="ride-detail__sheet"><View className="ride-detail__sheet-mask" onClick={() => setShowCreatorActions(false)} /><View className="ride-detail__sheet-panel"><Text className="ride-detail__sheet-title">管理同行</Text><Text className="ride-detail__sheet-action ride-detail__sheet-action--normal" onClick={() => { setShowCreatorActions(false); setShowTransfer(true); }}>转让发起人</Text><Text className="ride-detail__sheet-action" onClick={() => void cancelRide()}>取消同行</Text><Text className="ride-detail__sheet-cancel" onClick={() => setShowCreatorActions(false)}>关闭</Text></View></View>}
+    {showTransfer && <View className="ride-detail__sheet"><View className="ride-detail__sheet-mask" onClick={() => setShowTransfer(false)} /><View className="ride-detail__sheet-panel"><Text className="ride-detail__sheet-title">选择新发起人</Text><Text className="ride-detail__sheet-message">只能转让给当前已报名成员。</Text>{participants.filter((item) => !item.is_creator).length ? participants.filter((item) => !item.is_creator).map((item) => <View key={item.user_id} className="ride-detail__transfer-item" onClick={() => void transfer(item)}><Avatar src={item.avatar_url} name={item.nickname} /><Text>{item.nickname}</Text><Text>转让 ›</Text></View>) : <Text className="ride-detail__sheet-message">暂无可转让成员</Text>}<Text className="ride-detail__sheet-cancel" onClick={() => setShowTransfer(false)}>取消</Text></View></View>}
   </View>;
 }

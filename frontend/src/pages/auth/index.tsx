@@ -20,7 +20,7 @@ export default function AuthPage() {
     }
   });
 
-  const handleLogin = async (userInfo?: { nickName: string; avatarUrl: string }) => {
+  const handleLogin = async () => {
     if (submitting) return;
     if (!accepted) {
       Taro.showToast({ title: "请先阅读并勾选协议与安全须知", icon: "none" });
@@ -28,7 +28,7 @@ export default function AuthPage() {
     }
     setSubmitting(true);
     try {
-      await loginWithWechat(userInfo, LEGAL_CONSENT);
+      await loginWithWechat(LEGAL_CONSENT);
       await redirectAfterLogin();
     } catch (error) {
       Taro.showToast({
@@ -43,26 +43,6 @@ export default function AuthPage() {
   const openLegal = (type: LegalDocumentKey) =>
     Taro.navigateTo({ url: legalDocumentUrl(type) });
 
-  const handleGetUserInfo = (event: {
-    detail: {
-      errMsg?: string;
-      userInfo?: { nickName: string; avatarUrl: string };
-    };
-  }) => {
-    const userInfo = event.detail.userInfo;
-    if (!userInfo) {
-      void Taro.showToast({
-        title:
-          event.detail.errMsg === "getUserInfo:fail auth deny"
-            ? "需要同意授权后才能登录"
-            : "未获取到微信资料，请重试",
-        icon: "none",
-      });
-      return;
-    }
-    void handleLogin(userInfo);
-  };
-
   return (
     <View className="auth-page">
       <View className="auth-page__content">
@@ -73,12 +53,11 @@ export default function AuthPage() {
       <View className="auth-page__footer">
         <Button
           className="auth-page__login"
-          openType="getUserInfo"
           loading={submitting}
           disabled={submitting || !accepted}
-          onGetUserInfo={handleGetUserInfo}
+          onClick={() => void handleLogin()}
         >
-          微信一键登录
+          微信身份登录
         </Button>
         <View className="auth-page__consent" onClick={() => setAccepted((value) => !value)}>
           <View className={`auth-page__checkbox${accepted ? " auth-page__checkbox--checked" : ""}`}>{accepted ? "✓" : ""}</View>
@@ -96,7 +75,7 @@ export default function AuthPage() {
         <View className="auth-page__privacy-mask" />
         <View className="auth-page__privacy-panel">
           <Text className="auth-page__privacy-title">隐私保护提示</Text>
-          <Text className="auth-page__privacy-copy">登录会处理你的微信账号标识、授权的昵称和头像，并记录本次协议确认。位置、相册等权限只在你主动使用对应功能时申请；个人位置会先做模糊偏移。</Text>
+          <Text className="auth-page__privacy-copy">登录会通过微信临时登录凭证获取账号标识并建立会话，同时记录本次协议确认。昵称和头像由你登录后主动选择或填写；位置、相册等权限只在使用对应功能时申请。</Text>
           <Text className="auth-page__privacy-link" onClick={() => void openLegal("privacy-policy")}>阅读完整《隐私政策》</Text>
           <Button className="auth-page__privacy-confirm" onClick={() => setPrivacyOpen(false)}>我已知晓，继续</Button>
         </View>

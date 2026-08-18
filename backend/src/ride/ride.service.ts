@@ -6,6 +6,7 @@ import { RedisService } from '../common/redis/redis.service';
 import { FeatureFlagService } from '../common/feature-flag/feature-flag.service';
 import { SafetyAgreementService } from '../safety/safety-agreement.service';
 import { OptionalAgreementDto } from '../safety/dto/agreement.dto';
+import { UserService } from '../user/user.service';
 import {
   CreateRideDto,
   MyRideQueryDto,
@@ -40,6 +41,19 @@ const rideInclude = {
           points: { orderBy: { order: 'asc' as const }, select: { name: true, type: true } },
         },
       },
+      user_route: {
+        select: {
+          id: true,
+          user_id: true,
+          title: true,
+          start_location: true,
+          end_location: true,
+          difficulty: true,
+          total_distance: true,
+          visibility: true,
+          status: true,
+        },
+      },
     },
   },
 } satisfies Prisma.RideInclude;
@@ -52,6 +66,7 @@ export class RideService {
     private readonly redis: RedisService,
     private readonly flags: FeatureFlagService,
     private readonly safetyAgreements: SafetyAgreementService,
+    private readonly users: UserService,
   ) {}
 
   async list(query: RideQueryDto) {
@@ -117,15 +132,20 @@ export class RideService {
     };
   }
 
-  async detail(id: bigint) {
+  async detail(id: bigint, viewerId?: bigint) {
     const ride = await this.prisma.ride.findFirst({
       where: { id, deleted_at: null },
       include: rideInclude,
     });
     if (!ride) throw new AppException(3001, '约骑不存在', HttpStatus.NOT_FOUND);
     const viewCount = await this.redis.incr(`ride:view:${id.toString()}`);
+    const serialized = this.serializeRide(ride, undefined, undefined, null, viewerId);
     return {
-      ...this.serializeRide(ride),
+      ...serialized,
+      creator: {
+        ...serialized.creator,
+        wechat_id: await this.users.getVisibleWechat(viewerId, ride.user_id),
+      },
       view_count: ride.view_count + viewCount,
       description: ride.description,
       rules: ride.rules,
@@ -140,11 +160,20 @@ export class RideService {
     if (dto.min_people > dto.max_people) throw new AppException(1001, '最少人数不能大于最多人数');
     if (new Date(dto.departure_time) <= new Date())
       throw new AppException(1001, '出发时间必须晚于当前时间');
-    const { route_id, route_link_source, agreement, ...payload } = dto;
+    const { route_id, user_route_id, route_link_source, agreement, ...payload } = dto;
+    if (route_id && user_route_id) throw new AppException(1001, '只能关联一条路线');
     const ride = await this.prisma.$transaction(async (tx) => {
       const route = route_id
-        ? await this.validateRouteLink(tx, BigInt(route_id), dto.city_code)
-        : null;
+        ? {
+            type: 'official' as const,
+            item: await this.validateRouteLink(tx, BigInt(route_id), dto.city_code),
+          }
+        : user_route_id
+          ? {
+              type: 'user' as const,
+              item: await this.validateUserRouteLink(tx, BigInt(user_route_id), userId),
+            }
+          : null;
       const created = await tx.ride.create({
         data: {
           ...payload,
@@ -159,7 +188,12 @@ export class RideService {
           ...(route
             ? {
                 route_links: {
-                  create: { route_id: route.id, source: route_link_source ?? 'create_form' },
+                  create: {
+                    ...(route.type === 'official'
+                      ? { route_id: route.item.id }
+                      : { user_route_id: route.item.id }),
+                    source: route_link_source ?? 'create_form',
+                  },
                 },
               }
             : {}),
@@ -273,6 +307,61 @@ export class RideService {
     });
     await this.redis.geoRemove(`geo:rides:${ride.city_code}`, rideId.toString());
     return { success: true };
+  }
+
+  async transferCreator(userId: bigint, rideId: bigint, targetUserId: bigint) {
+    if (userId === targetUserId) throw new AppException(1001, '不能转让给自己');
+    const result = await this.prisma.$transaction(
+      async (tx) => {
+        const ride = await tx.ride.findFirst({ where: { id: rideId, deleted_at: null } });
+        if (!ride) throw new AppException(3001, '约骑不存在', HttpStatus.NOT_FOUND);
+        if (ride.user_id !== userId)
+          throw new AppException(3005, '只有当前发起人可以转让', HttpStatus.FORBIDDEN);
+        if (![1, 2].includes(ride.status) || ride.departure_time <= new Date())
+          throw new AppException(1001, '同行开始后不可转让发起人');
+        const target = await tx.rideParticipant.findUnique({
+          where: { ride_id_user_id: { ride_id: rideId, user_id: targetUserId } },
+          include: { user: { select: { nickname: true } } },
+        });
+        if (!target || target.status !== 1 || target.deleted_at)
+          throw new AppException(1001, '只能转让给已报名的成员');
+
+        await tx.rideParticipant.updateMany({
+          where: { ride_id: rideId, is_creator: true },
+          data: { is_creator: false },
+        });
+        await tx.rideParticipant.update({
+          where: { id: target.id },
+          data: { is_creator: true },
+        });
+        await tx.ride.update({ where: { id: rideId }, data: { user_id: targetUserId } });
+        await tx.notification.createMany({
+          data: [
+            {
+              user_id: targetUserId,
+              type: 6,
+              title: '您已成为同行发起人',
+              content: `“${ride.title}”已转让给您，请及时确认同行安排`,
+              related_type: 'ride',
+              related_id: rideId,
+              from_user_id: userId,
+            },
+            {
+              user_id: userId,
+              type: 6,
+              title: '同行转让成功',
+              content: `“${ride.title}”已转让给${target.user.nickname}`,
+              related_type: 'ride',
+              related_id: rideId,
+              from_user_id: targetUserId,
+            },
+          ],
+        });
+        return { target: target.user.nickname };
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
+    return { success: true, creator_id: targetUserId.toString(), creator_name: result.target };
   }
 
   async join(
@@ -467,6 +556,7 @@ export class RideService {
     if (!ride) throw new AppException(3001, '约骑不存在', HttpStatus.NOT_FOUND);
     if (ride.user_id !== userId) throw new AppException(3005, '无权限操作', HttpStatus.FORBIDDEN);
     if (![1, 2].includes(ride.status)) throw new AppException(1001, '已出发或已结束的约骑不可操作');
+    if (ride.departure_time <= new Date()) throw new AppException(1001, '同行开始后不可操作');
     return ride;
   }
 
@@ -475,6 +565,7 @@ export class RideService {
     latitude?: number,
     longitude?: number,
     presetDistance: number | null = null,
+    viewerId?: bigint,
   ) {
     const distance =
       presetDistance ??
@@ -508,7 +599,7 @@ export class RideService {
       participant_avatars: ride.participants
         .map((participant) => participant.user.avatar_url)
         .filter((url): url is string => Boolean(url)),
-      route: this.serializeRouteLink(ride.route_links[0]?.route),
+      route: this.serializeRouteLink(ride.route_links[0], viewerId),
     };
   }
 
@@ -524,12 +615,53 @@ export class RideService {
     return route;
   }
 
-  private serializeRouteLink(route: RideRecord['route_links'][number]['route'] | undefined) {
+  private async validateUserRouteLink(
+    tx: Prisma.TransactionClient,
+    routeId: bigint,
+    userId: bigint,
+  ) {
+    await this.flags.assertEnabled('route.link_enabled');
+    const route = await tx.userRoute.findFirst({
+      where: {
+        id: routeId,
+        status: 1,
+        OR: [{ visibility: 2 }, { user_id: userId }],
+      },
+      select: { id: true },
+    });
+    if (!route) throw new AppException(53001, '所选用户路线已下架或不可关联', HttpStatus.CONFLICT);
+    return route;
+  }
+
+  private serializeRouteLink(
+    link: RideRecord['route_links'][number] | undefined,
+    viewerId?: bigint,
+  ) {
+    if (!link) return null;
+    if (link.user_route) {
+      const route = link.user_route;
+      const canOpen = route.status === 1 && (route.visibility === 2 || route.user_id === viewerId);
+      const canExpose = route.visibility === 2 || route.user_id === viewerId;
+      return {
+        id: route.id.toString(),
+        source_type: 'user' as const,
+        title: canExpose ? route.title : '发起人的私密路线',
+        city_code: null,
+        city_name: null,
+        difficulty: canExpose ? route.difficulty : null,
+        distance_km: canExpose ? (route.total_distance?.toString() ?? null) : null,
+        start_name: canExpose ? route.start_location : null,
+        end_name: canExpose ? route.end_location : null,
+        available: canOpen,
+      };
+    }
+    const route = link.route;
     if (!route) return null;
     const start = route.points.find((point) => point.type === 'start') ?? route.points[0];
     const end = route.points.find((point) => point.type === 'end') ?? route.points.at(-1);
     return {
       id: route.id.toString(),
+      source_type: 'official' as const,
       title: route.title,
       city_code: route.city_code,
       city_name: route.city_name,

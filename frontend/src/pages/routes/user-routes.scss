@@ -23,3 +23,4 @@
 .user-route-gallery { display: flex; flex-wrap: wrap; gap: $space-2; margin-top: $space-3; }
 .user-route-gallery Image { width: 190px; height: 190px; border-radius: $radius-md; }
 .user-route-private { display: inline-block; margin-left: $space-2; padding: 6px 12px; border-radius: 999px; background: #fff1d6; color: #ad6800; font-size: 21px; vertical-align: middle; }
+.route-detail__create-ride { margin: $space-3 0; padding: 24px; border-radius: $radius-md; color: #fff; background: $color-brand; text-align: center; font-size: 29px; font-weight: 650; }

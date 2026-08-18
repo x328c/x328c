@@ -30,6 +30,7 @@ export class CreateRideDto extends OptionalAgreementDto {
   @IsOptional() @IsObject() rules?: Record<string, unknown>;
   @IsString() @Length(1, 20) city_code!: string;
   @IsOptional() @IsNumberString({ no_symbols: true }) @Length(1, 32) route_id?: string;
+  @IsOptional() @IsNumberString({ no_symbols: true }) @Length(1, 32) user_route_id?: string;
   @IsOptional() @IsIn(['route_detail', 'create_form']) route_link_source?:
     'route_detail' | 'create_form';
 }

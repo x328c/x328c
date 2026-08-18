@@ -1,11 +1,11 @@
 import { Image, Input, ScrollView, Text, View } from "@tarojs/components";
-import Taro, { useDidShow } from "@tarojs/taro";
+import Taro, { useDidShow, usePullDownRefresh } from "@tarojs/taro";
 import { useCallback, useState } from "react";
 import { StatePanel } from "@/components";
 import { trackRouteEvent } from "@/services/analytics";
-import { ApiError } from "@/services/request";
 import { routeService, type RouteListQuery } from "@/services/routes";
-import type { RouteDifficulty, RouteSummary, RouteType } from "@/types/api";
+import { userRouteService } from "@/services/user-routes";
+import type { RouteDifficulty, RouteSummary, RouteType, UserRoute } from "@/types/api";
 import "./index.scss";
 
 const types: Array<{ value?: RouteType; label: string }> = [
@@ -17,90 +17,61 @@ const difficulties: Array<{ value?: RouteDifficulty; label: string }> = [
   { value: "moderate", label: "适中" }, { value: "hard", label: "挑战" },
 ];
 const difficultyNames: Record<RouteDifficulty, string> = { easy: "轻松", moderate: "适中", hard: "挑战" };
+type SourceFilter = "all" | "official" | "user";
 
-function RouteCard({ route }: { route: RouteSummary }) {
+function OfficialRouteCard({ route }: { route: RouteSummary }) {
   const [imageFailed, setImageFailed] = useState(false);
   return <View className="route-card" onClick={() => Taro.navigateTo({ url: `/packageRoutes/pages/detail/index?id=${route.id}` })}>
-    {route.cover_image && !imageFailed
-      ? <Image className="route-card__cover" mode="aspectFill" src={route.cover_image} onError={() => setImageFailed(true)} />
-      : <View className="route-card__cover route-card__cover--placeholder">摩搭子路线</View>}
-    <View className="route-card__body">
-      <Text className="route-card__title">{route.title}</Text>
-      <Text className="route-card__meta">{route.city_name || route.city_code || "城市待补充"} · {route.difficulty ? difficultyNames[route.difficulty] : "难度待补充"}</Text>
-      <Text className="route-card__summary">{route.summary || "运营精选骑行路线"}</Text>
-      <View className="route-card__facts">
-        <Text>{route.distance_km ? `${route.distance_km} km` : "里程待补充"}</Text>
-        <Text>{route.duration_min ? `约 ${Math.ceil(route.duration_min / 60)} 小时` : "时长待补充"}</Text>
-        {route.is_favorited ? <Text className="route-card__favorite">已收藏</Text> : null}
-      </View>
-    </View>
+    {route.cover_image && !imageFailed ? <Image className="route-card__cover" mode="aspectFill" src={route.cover_image} onError={() => setImageFailed(true)} /> : <View className="route-card__cover route-card__cover--placeholder">官方路线</View>}
+    <View className="route-card__body"><Text className="route-card__title">{route.title}</Text><Text className="route-card__meta">官方精选 · {route.city_name || route.city_code || "城市待补充"} · {route.difficulty ? difficultyNames[route.difficulty] : "难度待补充"}</Text><Text className="route-card__summary">{route.summary || "运营精选骑行路线"}</Text><View className="route-card__facts"><Text>{route.distance_km ? `${route.distance_km} km` : "里程待补充"}</Text><Text>{route.duration_min ? `约 ${Math.ceil(route.duration_min / 60)} 小时` : "时长待补充"}</Text></View></View>
+  </View>;
+}
+
+function UserRouteCard({ route }: { route: UserRoute }) {
+  return <View className="route-card" onClick={() => Taro.navigateTo({ url: `/pages/routes/detail/index?id=${route.id}` })}>
+    {route.images[0] ? <Image className="route-card__cover" mode="aspectFill" src={route.images[0]} /> : <View className="route-card__cover route-card__cover--placeholder">骑友路线</View>}
+    <View className="route-card__body"><Text className="route-card__title">{route.title}</Text><Text className="route-card__meta">骑友发布 · {route.start_location} → {route.end_location || "未设置终点"}</Text><Text className="route-card__summary">{route.description || `由 ${route.creator.nickname} 录入`}</Text><View className="route-card__facts"><Text>{route.total_distance != null ? `${route.total_distance} km` : "里程待补充"}</Text><Text>{route.estimated_time != null ? `约 ${route.estimated_time} 分钟` : "时长待补充"}</Text><Text className="route-card__favorite">{route.difficulty ? `${route.difficulty} 星` : "难度待补充"}</Text></View></View>
   </View>;
 }
 
 export default function RoutesPage() {
-  const [items, setItems] = useState<RouteSummary[]>([]);
-  const [query, setQuery] = useState<RouteListQuery>({ limit: 20 });
+  const [official, setOfficial] = useState<RouteSummary[]>([]);
+  const [userRoutes, setUserRoutes] = useState<UserRoute[]>([]);
+  const [query, setQuery] = useState<RouteListQuery>({ limit: 50 });
   const [cityCode, setCityCode] = useState("");
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(false);
-  const [state, setState] = useState<"loading" | "ready" | "error" | "disabled">("loading");
-  const [loadingMore, setLoadingMore] = useState(false);
+  const [keyword, setKeyword] = useState("");
+  const [source, setSource] = useState<SourceFilter>("all");
+  const [state, setState] = useState<"loading" | "ready" | "error">("loading");
 
-  const load = useCallback(async (nextQuery: RouteListQuery, append = false) => {
-    if (append) setLoadingMore(true); else setState("loading");
+  const load = useCallback(async (nextQuery: RouteListQuery = query) => {
+    setState("loading");
     try {
-      const result = await routeService.list(nextQuery);
-      setItems((current) => append ? [...current, ...result.items] : result.items);
-      setNextCursor(result.nextCursor); setHasMore(result.hasMore); setState("ready");
-      trackRouteEvent("route_list_result", {
-        city_code: nextQuery.city_code ?? "all",
-        type: nextQuery.type ?? "all",
-        difficulty: nextQuery.difficulty ?? "all",
-        result_count: result.items.length,
-        has_more: result.hasMore,
-        append,
-      });
-    } catch (error) {
-      setState(error instanceof ApiError && error.code === 52001 ? "disabled" : "error");
-    } finally { setLoadingMore(false); }
-  }, []);
+      const [officialResult, userResult] = await Promise.all([
+        routeService.list(nextQuery),
+        userRouteService.publicList({ limit: 50, keyword: keyword.trim() || undefined }),
+      ]);
+      setOfficial(officialResult.items);
+      setUserRoutes(userResult.items);
+      setState("ready");
+      trackRouteEvent("route_list_result", { official_count: officialResult.items.length, user_count: userResult.items.length });
+    } catch { setState("error"); }
+    finally { Taro.stopPullDownRefresh(); }
+  }, [keyword, query]);
 
-  useDidShow(() => {
-    trackRouteEvent("route_module_exposure");
-    void load(query);
-  });
-  const changeFilter = (patch: Partial<RouteListQuery>) => {
-    const next = { ...query, ...patch, cursor: undefined };
-    trackRouteEvent("route_filter", {
-      city_code: next.city_code ?? "all",
-      type: next.type ?? "all",
-      difficulty: next.difficulty ?? "all",
-    });
-    setQuery(next); setNextCursor(null); void load(next);
-  };
-  const clearFilters = () => { setCityCode(""); const next = { limit: 20 }; setQuery(next); void load(next); };
-  const loadMore = () => { if (hasMore && nextCursor && !loadingMore) void load({ ...query, cursor: nextCursor }, true); };
+  useDidShow(() => { trackRouteEvent("route_module_exposure"); void load(); });
+  usePullDownRefresh(() => void load());
+  const changeFilter = (patch: Partial<RouteListQuery>) => { const next = { ...query, ...patch, cursor: undefined }; setQuery(next); void load(next); };
+  const shownOfficial = source !== "user" ? official : [];
+  const shownUsers = source !== "official" ? userRoutes : [];
+  const total = shownOfficial.length + shownUsers.length;
 
   return <View className="routes-page">
-    <View className="routes-page__hero">
-      <Text className="routes-page__title">本城路线</Text>
-      <Text className="routes-page__subtitle">按路线起点城市发现运营精选路线</Text>
-      <View className="routes-page__user-actions"><Text onClick={() => Taro.navigateTo({ url: "/pages/routes/square/index" })}>路线广场</Text><Text onClick={() => Taro.navigateTo({ url: "/pages/routes/mine/index" })}>我的路线</Text><Text onClick={() => Taro.navigateTo({ url: "/pages/routes/create/index" })}>+ 录入路线</Text></View>
-      <Input className="routes-page__city" value={cityCode} maxlength={20} placeholder="输入城市码筛选，例如 330100" onInput={(event) => setCityCode(event.detail.value)} onConfirm={() => changeFilter({ city_code: cityCode.trim() || undefined })} />
-    </View>
-    <ScrollView scrollX className="routes-page__filters"><View className="routes-page__filter-row">
-      {types.map((item) => <Text key={item.value ?? "all"} className={query.type === item.value ? "routes-page__chip routes-page__chip--active" : "routes-page__chip"} onClick={() => changeFilter({ type: item.value })}>{item.label}</Text>)}
-    </View></ScrollView>
-    <ScrollView scrollX className="routes-page__filters"><View className="routes-page__filter-row">
-      {difficulties.map((item) => <Text key={item.value ?? "all"} className={query.difficulty === item.value ? "routes-page__chip routes-page__chip--active" : "routes-page__chip"} onClick={() => changeFilter({ difficulty: item.value })}>{item.label}</Text>)}
-    </View></ScrollView>
-    {state === "loading" ? <StatePanel type="loading" title="正在加载精选路线" /> : null}
-    {state === "disabled" ? <StatePanel type="disabled" title="路线功能暂未开放" description="同行功能仍可正常使用" actionText="返回同行" onAction={() => Taro.switchTab({ url: "/pages/index/index" })} /> : null}
-    {state === "error" ? <StatePanel type="error" actionText="重新加载" onAction={() => void load(query)} /> : null}
-    {state === "ready" && !items.length ? <StatePanel type="empty" title="没有匹配路线" description="换个城市或筛选条件试试" actionText="清除筛选" onAction={clearFilters} /> : null}
-    {state === "ready" && items.length ? <View className="routes-page__list">
-      {items.map((route) => <RouteCard key={route.id} route={route} />)}
-      {hasMore ? <View className="routes-page__more" onClick={loadMore}>{loadingMore ? "加载中…" : "加载更多"}</View> : <View className="routes-page__end">已展示全部路线</View>}
-    </View> : null}
+    <View className="routes-page__hero"><Text className="routes-page__title">路线</Text><Text className="routes-page__subtitle">官方精选与骑友发布路线统一展示</Text><View className="routes-page__user-actions"><Text onClick={() => Taro.navigateTo({ url: "/pages/routes/mine/index" })}>我的路线</Text><Text onClick={() => Taro.navigateTo({ url: "/pages/routes/create/index" })}>+ 录入路线</Text></View><Input className="routes-page__city" value={keyword} placeholder="搜索骑友路线标题、起点或终点" onInput={(event) => setKeyword(event.detail.value)} onConfirm={() => void load()} /><Input className="routes-page__city" value={cityCode} maxlength={20} placeholder="官方路线城市码，例如 650100" onInput={(event) => setCityCode(event.detail.value)} onConfirm={() => changeFilter({ city_code: cityCode.trim() || undefined })} /></View>
+    <ScrollView scrollX className="routes-page__filters"><View className="routes-page__filter-row">{([['all','全部路线'],['official','官方路线'],['user','骑友路线']] as const).map(([value,label]) => <Text key={value} className={source === value ? "routes-page__chip routes-page__chip--active" : "routes-page__chip"} onClick={() => setSource(value)}>{label}</Text>)}</View></ScrollView>
+    {source !== "user" ? <><ScrollView scrollX className="routes-page__filters"><View className="routes-page__filter-row">{types.map((item) => <Text key={item.value ?? "all"} className={query.type === item.value ? "routes-page__chip routes-page__chip--active" : "routes-page__chip"} onClick={() => changeFilter({ type: item.value })}>{item.label}</Text>)}</View></ScrollView><ScrollView scrollX className="routes-page__filters"><View className="routes-page__filter-row">{difficulties.map((item) => <Text key={item.value ?? "all"} className={query.difficulty === item.value ? "routes-page__chip routes-page__chip--active" : "routes-page__chip"} onClick={() => changeFilter({ difficulty: item.value })}>{item.label}</Text>)}</View></ScrollView></> : null}
+    {state === "loading" ? <StatePanel type="loading" title="正在加载路线" /> : null}
+    {state === "error" ? <StatePanel type="error" actionText="重新加载" onAction={() => void load()} /> : null}
+    {state === "ready" && !total ? <StatePanel type="empty" title="没有匹配路线" description="换个筛选条件试试" /> : null}
+    {state === "ready" && total ? <View className="routes-page__list">{shownOfficial.map((route) => <OfficialRouteCard key={`official-${route.id}`} route={route} />)}{shownUsers.map((route) => <UserRouteCard key={`user-${route.id}`} route={route} />)}<View className="routes-page__end">已展示当前全部路线</View></View> : null}
   </View>;
 }
