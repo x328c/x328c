@@ -14,9 +14,6 @@ import { UpdateFeatureFlagsDto } from './dto';
 export const MANAGED_FEATURE_FLAG_KEYS = [
   'route.enabled',
   'regulation.enabled',
-  'forum.enabled',
-  'forum.write_enabled',
-  'forum.publish_mode',
   'route.link_enabled',
   'route.comment_enabled',
   'route.comment_read_enabled',
@@ -44,9 +41,6 @@ export class AdminFeatureFlagService {
   }
 
   async update(dto: UpdateFeatureFlagsDto, actor: OperationActorContext) {
-    if (dto.forum_write_enabled && !dto.forum_enabled) {
-      throw new AppException(40001, '论坛总开关关闭时不能开启论坛写入', HttpStatus.BAD_REQUEST);
-    }
     if (dto.route_comment_enabled && !dto.route_comment_read_enabled) {
       throw new AppException(
         40001,
@@ -77,7 +71,7 @@ export class AdminFeatureFlagService {
         ...actor,
         action: 'feature_flags.update',
         objectType: 'feature_flags',
-        objectId: 'v2.1',
+        objectId: 'v2.2',
         reason: dto.reason,
         beforeSummary: before,
         afterSummary: after,
@@ -92,9 +86,6 @@ export class AdminFeatureFlagService {
     return {
       'route.enabled': dto.route_enabled,
       'regulation.enabled': dto.regulation_enabled,
-      'forum.enabled': dto.forum_enabled,
-      'forum.write_enabled': dto.forum_write_enabled,
-      'forum.publish_mode': dto.forum_publish_mode,
       'route.link_enabled': dto.route_link_enabled,
       'route.comment_enabled': dto.route_comment_enabled,
       'route.comment_read_enabled': dto.route_comment_read_enabled,
@@ -107,9 +98,6 @@ export class AdminFeatureFlagService {
     return {
       route_enabled: values['route.enabled'],
       regulation_enabled: values['regulation.enabled'],
-      forum_enabled: values['forum.enabled'],
-      forum_write_enabled: values['forum.write_enabled'],
-      forum_publish_mode: values['forum.publish_mode'],
       route_link_enabled: values['route.link_enabled'],
       route_comment_enabled: values['route.comment_enabled'],
       route_comment_read_enabled: values['route.comment_read_enabled'],
@@ -123,11 +111,6 @@ export class AdminFeatureFlagService {
     value: string | undefined,
   ): FeatureFlagValues[K] {
     if (value === undefined) return FEATURE_FLAG_DEFAULTS[key];
-    if (key === 'forum.publish_mode') {
-      return (
-        ['invite_only', 'gray', 'all'].includes(value) ? value : FEATURE_FLAG_DEFAULTS[key]
-      ) as FeatureFlagValues[K];
-    }
     if (value === 'true') return true as FeatureFlagValues[K];
     if (value === 'false') return false as FeatureFlagValues[K];
     return FEATURE_FLAG_DEFAULTS[key];

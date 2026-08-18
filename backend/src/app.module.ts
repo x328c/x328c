@@ -1,15 +1,14 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { ActivityModule } from './activity/activity.module';
 import { AdminModule } from './admin/admin.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { CommonModule } from './common/common.module';
+import { RetiredFeaturesController } from './common/retired-features.controller';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
 import { RequestIdMiddleware } from './common/request/request-id.middleware';
 import { FileModule } from './file/file.module';
-import { ForumModule } from './forum/forum.module';
 import { MessageModule } from './message/message.module';
 import { RideModule } from './ride/ride.module';
 import { ReportModule } from './report/report.module';
@@ -35,8 +34,6 @@ import { SettingsModule } from './settings/settings.module';
     ReportModule,
     RouteModule,
     RegulationModule,
-    ForumModule,
-    ActivityModule,
     MessageModule,
     FileModule,
     AdminModule,
@@ -46,7 +43,7 @@ import { SettingsModule } from './settings/settings.module';
     SafetyModule,
     SettingsModule,
   ],
-  controllers: [AppController],
+  controllers: [AppController, RetiredFeaturesController],
   providers: [AppService],
 })
 export class AppModule implements NestModule {

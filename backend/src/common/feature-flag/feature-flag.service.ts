@@ -69,11 +69,6 @@ export class FeatureFlagService {
   }
 
   private parse<K extends FeatureFlagKey>(key: K, value: string): FeatureFlagValues[K] {
-    if (key === 'forum.publish_mode') {
-      return (
-        ['invite_only', 'gray', 'all'].includes(value) ? value : FEATURE_FLAG_DEFAULTS[key]
-      ) as FeatureFlagValues[K];
-    }
     if (value === 'true') return true as FeatureFlagValues[K];
     if (value === 'false') return false as FeatureFlagValues[K];
     return FEATURE_FLAG_DEFAULTS[key];

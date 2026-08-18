@@ -73,24 +73,6 @@ export class AdminController {
   deleteRide(@Req() request: AdminRequest, @Param('id') id: string) {
     return this.admin.deleteRide(BigInt(id), auditContext(request));
   }
-  @Get('activities')
-  @UseGuards(AdminJwtGuard, AdminRolesGuard)
-  @Roles(1, 9)
-  activities(@Query() query: AdminContentQueryDto) {
-    return this.admin.activities(query);
-  }
-  @Post('activities/:id/offline')
-  @UseGuards(AdminJwtGuard, AdminRolesGuard)
-  @Roles(1, 9)
-  offlineActivity(@Req() request: AdminRequest, @Param('id') id: string) {
-    return this.admin.offlineActivity(BigInt(id), auditContext(request));
-  }
-  @Delete('activities/:id')
-  @UseGuards(AdminJwtGuard, AdminRolesGuard)
-  @Roles(9)
-  deleteActivity(@Req() request: AdminRequest, @Param('id') id: string) {
-    return this.admin.deleteActivity(BigInt(id), auditContext(request));
-  }
   @Get('users')
   @UseGuards(AdminJwtGuard, AdminRolesGuard)
   @Roles(1, 9)

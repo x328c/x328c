@@ -24,6 +24,11 @@ describe('AdminRegulationController role boundaries', () => {
     expect(rolesFor('batchPublish')).toEqual([9]);
   });
 
+  it('keeps permanent deletion restricted to super administrators', () => {
+    expect(rolesFor('delete')).toEqual([9]);
+    expect(rolesFor('batchDelete')).toEqual([9]);
+  });
+
   it('allows owners and super administrators to batch-submit drafts', () => {
     expect(rolesFor('batchSubmitReview')).toEqual([1, 9]);
   });
@@ -33,5 +38,6 @@ describe('AdminRegulationController role boundaries', () => {
     expect(methods.indexOf('batchSubmitReview')).toBeLessThan(methods.indexOf('detail'));
     expect(methods.indexOf('batchReview')).toBeLessThan(methods.indexOf('detail'));
     expect(methods.indexOf('batchPublish')).toBeLessThan(methods.indexOf('detail'));
+    expect(methods.indexOf('batchDelete')).toBeLessThan(methods.indexOf('detail'));
   });
 });

@@ -68,5 +68,27 @@ docker compose --env-file .env.production -f deploy/docker-compose.production.ym
 docker compose --env-file .env.production -f deploy/docker-compose.production.yml ps
 ```
 
+### V2.2 受控数据更新
+
+V2.2 下线活动和论坛运行时，但不删除对应历史表。法规永久清理必须与代码部署分开执行：
+
+```bash
+cd /var/www/jiangxing/backend
+bash deploy/scripts/backup-mysql.sh
+bash deploy/scripts/deploy.sh
+
+mkdir -p reports/v2.2-production-preview
+docker compose --env-file .env.production -f deploy/docker-compose.production.yml run --rm \
+  -v "$PWD/reports:/app/reports" --entrypoint npx app \
+  ts-node --transpile-only scripts/import-v22-safe-riding-initiative.ts
+docker compose --env-file .env.production -f deploy/docker-compose.production.yml run --rm \
+  -v "$PWD/reports:/app/reports" --entrypoint npx app \
+  ts-node --transpile-only scripts/cleanup-v22-regulations.ts \
+  --report-dir=/app/reports/v2.2-production-preview
+```
+
+人工核对候选 CSV、备份位置和校验值后，才可在同一镜像中增加
+`--execute --confirmation=DELETE-候选数量` 执行。不得删除活动、论坛历史表，也不得复用其他环境的候选数量。
+
 备份脚本默认在 `/var/backups/jiangxing` 中保留 14 天备份。请将备份加密后同步到服务器
 外部；只保存在应用服务器上的备份无法应对服务器丢失或损坏。

@@ -15,9 +15,16 @@ export class ReportService {
     private readonly rateLimits: RateLimitService,
   ) {}
   async create(reporterId: bigint, ip: string, dto: CreateReportDto) {
-    if (dto.content_type.startsWith('forum_') || dto.content_type === 'route_comment') {
+    if (['activity', 'forum_post', 'forum_reply'].includes(String(dto.content_type))) {
+      throw new AppException(
+        57001,
+        '该功能已于 V2.2 下线，请升级到最新版本',
+        HttpStatus.GONE,
+      );
+    }
+    if (dto.content_type === 'route_comment') {
       await this.rateLimits.consume({
-        scope: 'forum.report.minute',
+        scope: 'route_comment.report.minute',
         subject: `${reporterId.toString()}:${ip}`,
         limit: 10,
         windowSeconds: 60,

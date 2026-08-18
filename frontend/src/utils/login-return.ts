@@ -6,10 +6,7 @@ const ALLOWED_RETURN_PATHS = [
   "/packageRoutes/pages/detail/index",
   "/packageRegulations/pages/index/index",
   "/packageRegulations/pages/detail/index",
-  "/pages/forum/index",
-  "/packageForum/pages/detail/index",
-  "/packageForum/pages/create/index",
-  "/packageForum/pages/my/index",
+  "/packageRegulations/pages/safe-riding-initiative/index",
 ];
 
 function isAllowed(url: string): boolean {

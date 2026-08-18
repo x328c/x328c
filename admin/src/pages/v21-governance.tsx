@@ -16,8 +16,9 @@ function ask(title: string, action: (reason: string) => Promise<void>) {
   });
 }
 
-interface GuideEditorValues extends Omit<SafetyGuideRevisionPayload, 'content_json'> {
-  content_json_text: string;
+interface GuideEditorValues extends Omit<SafetyGuideRevisionPayload, 'content_json' | 'content_text'> {
+  content_json_text?: string;
+  content_text?: string;
 }
 
 const DEFAULT_GUIDE_CONTENT = {
@@ -25,6 +26,19 @@ const DEFAULT_GUIDE_CONTENT = {
   disclaimer: '本指南不判断事故责任，不替代公安交管、保险机构或专业法律意见。',
   sections: [{ title: '处理步骤', items: ['请在后台补充内容后提交复核。'] }],
 };
+const DEFAULT_INITIATIVE_TEXT = `## 摘要
+
+请填写倡议摘要。
+
+## 正文
+
+### 一、章节标题
+
+请填写章节正文，并保持共 10 个三级标题章节。
+
+## 来源与编制依据
+
+1. [官方来源标题](https://www.npc.gov.cn/)：请填写编制依据说明。`;
 
 export function V21GovernancePage() {
   const role = useAuthStore((state) => state.admin?.role);
@@ -34,6 +48,7 @@ export function V21GovernancePage() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form] = Form.useForm<GuideEditorValues>();
+  const editingCode = Form.useWatch('code', form);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -54,17 +69,20 @@ export function V21GovernancePage() {
       message.success('操作成功'); await load();
     });
 
-  const openEditor = (guide?: SafetyGuideAdminItem) => {
+  const openEditor = (guide?: SafetyGuideAdminItem, requestedCode: 'accident_handling' | 'safe_riding_initiative' = 'accident_handling') => {
     const revision = guide?.revisions[0];
+    const code = guide?.code ?? requestedCode;
+    const initiative = code === 'safe_riding_initiative';
     form.setFieldsValue({
-      code: guide?.code ?? 'accident_handling',
-      title: guide?.title ?? '骑行应急知识',
-      summary: guide?.summary ?? '道路交通事故一般处理流程提示。',
+      code,
+      title: guide?.title ?? (initiative ? '安全骑行倡议' : '骑行应急知识'),
+      summary: guide?.summary ?? (initiative ? '合法、安全、克制地骑行，对自己、同伴和公众负责。' : '道路交通事故一般处理流程提示。'),
       version: '',
-      content_json_text: JSON.stringify(revision?.content_json ?? DEFAULT_GUIDE_CONTENT, null, 2),
-      source_title: revision?.source_title ?? '道路交通事故处理程序规定',
-      source_url: revision?.source_url ?? 'https://www.gov.cn/zhengce/2021-12/25/content_5712900.htm',
-      source_issuer: revision?.source_issuer ?? '中华人民共和国公安部',
+      content_json_text: initiative ? undefined : JSON.stringify(revision?.content_json ?? DEFAULT_GUIDE_CONTENT, null, 2),
+      content_text: initiative ? revision?.content_text ?? DEFAULT_INITIATIVE_TEXT : undefined,
+      source_title: revision?.source_title ?? (initiative ? '中华人民共和国道路交通安全法' : '道路交通事故处理程序规定'),
+      source_url: revision?.source_url ?? (initiative ? 'https://www.npc.gov.cn/' : 'https://www.gov.cn/zhengce/2021-12/25/content_5712900.htm'),
+      source_issuer: revision?.source_issuer ?? (initiative ? '全国人民代表大会常务委员会' : '中华人民共和国公安部'),
       source_published_at: revision?.source_published_at?.slice(0, 10) ?? '2017-07-22',
       source_effective_at: revision?.source_effective_at?.slice(0, 10) ?? '2018-05-01',
       content_note: '',
@@ -75,15 +93,19 @@ export function V21GovernancePage() {
 
   const saveRevision = async (values: GuideEditorValues) => {
     let content: unknown;
-    try { content = JSON.parse(values.content_json_text); }
-    catch { message.error('指南内容 JSON 格式错误'); return; }
-    if (!content || Array.isArray(content) || typeof content !== 'object') {
-      message.error('指南内容必须是 JSON 对象'); return;
+    if (values.code !== 'safe_riding_initiative') {
+      try { content = JSON.parse(values.content_json_text ?? ''); }
+      catch { message.error('指南内容 JSON 格式错误'); return; }
+      if (!content || Array.isArray(content) || typeof content !== 'object') {
+        message.error('指南内容必须是 JSON 对象'); return;
+      }
     }
     setSaving(true);
     try {
-      const { content_json_text: _ignored, ...rest } = values;
-      await adminApi.createSafetyGuideRevision({ ...rest, content_json: content as Record<string, unknown> });
+      const { content_json_text: _ignored, content_text, ...rest } = values;
+      await adminApi.createSafetyGuideRevision(values.code === 'safe_riding_initiative'
+        ? { ...rest, content_text }
+        : { ...rest, content_json: content as Record<string, unknown> });
       message.success('新修订已保存，请由另一名管理员复核后发布');
       setEditorOpen(false); form.resetFields(); await load();
     } finally { setSaving(false); }
@@ -92,12 +114,12 @@ export function V21GovernancePage() {
   const revisions = guides.flatMap((guide) => guide.revisions.map((revision) => ({ ...revision, article: guide.title, guide })));
   return <Space direction="vertical" size="large" style={{ width: '100%' }}>
     <Card>
-      <Typography.Title level={3}>V2.1 事故指南与安全须知</Typography.Title>
-      <Typography.Paragraph type="secondary">系统初始事故指南已直接上线；后续修改会创建不可变修订，须由另一名管理员复核后发布。</Typography.Paragraph>
+      <Typography.Title level={3}>V2.2 安全内容</Typography.Title>
+      <Typography.Paragraph type="secondary">骑行应急知识与安全骑行倡议均采用不可变修订，须由非创建人复核后再由超级管理员发布。</Typography.Paragraph>
     </Card>
     <Tabs defaultActiveKey="guides" items={[
-      { key: 'guides', label: '骑行应急知识', children: <Space direction="vertical" style={{ width: '100%' }}>
-        <Button type="primary" disabled={role !== 1 && role !== 9} onClick={() => openEditor(guides.find((item) => item.code === 'accident_handling'))}>新建/修改指南版本</Button>
+      { key: 'guides', label: '安全内容', children: <Space direction="vertical" style={{ width: '100%' }}>
+        <Space><Button type="primary" disabled={role !== 1 && role !== 9} onClick={() => openEditor(guides.find((item) => item.code === 'accident_handling'))}>新建/修改应急知识</Button><Button type="primary" disabled={role !== 1 && role !== 9} onClick={() => openEditor(guides.find((item) => item.code === 'safe_riding_initiative'), 'safe_riding_initiative')}>新建/修改安全骑行倡议</Button></Space>
         <Table loading={loading} rowKey="id" dataSource={revisions} columns={[
           { title: '指南', dataIndex: 'article' }, { title: '版本', dataIndex: 'version' },
           { title: '原文链接', dataIndex: 'source_url', ellipsis: true, render: (value: string) => <a href={value} target="_blank" rel="noreferrer">{value}</a> },
@@ -114,12 +136,14 @@ export function V21GovernancePage() {
         { title: '操作', render: (_, item) => <Space><Button disabled={(role !== 2 && role !== 9) || Boolean(item.reviewed_at)} onClick={() => workflow('agreement', item.id, 'review')}>复核</Button><Button type="primary" disabled={role !== 9 || !item.reviewed_at || item.status === 1} onClick={() => workflow('agreement', item.id, 'publish')}>发布</Button></Space> },
       ]} /> },
     ]} />
-    <Modal title="新建事故指南修订" width={880} open={editorOpen} confirmLoading={saving} onCancel={() => setEditorOpen(false)} onOk={() => form.submit()} okText="保存修订">
+    <Modal title="新建安全内容修订" width={880} open={editorOpen} confirmLoading={saving} onCancel={() => setEditorOpen(false)} onOk={() => form.submit()} okText="保存修订">
       <Form form={form} layout="vertical" onFinish={(values) => void saveRevision(values)}>
         <Space style={{ display: 'flex' }} align="start"><Form.Item name="code" label="代码" rules={[{ required: true }]}><Input disabled /></Form.Item><Form.Item name="version" label="新版本号" rules={[{ required: true }]}><Input placeholder="例：2026.08.2" /></Form.Item></Space>
         <Form.Item name="title" label="标题" rules={[{ required: true }]}><Input maxLength={120} /></Form.Item>
         <Form.Item name="summary" label="摘要" rules={[{ required: true }]}><Input.TextArea rows={2} maxLength={500} /></Form.Item>
-        <Form.Item name="content_json_text" label="指南内容 JSON（alert、disclaimer、sections）" rules={[{ required: true }]}><Input.TextArea rows={14} /></Form.Item>
+        {editingCode === 'safe_riding_initiative'
+          ? <Form.Item name="content_text" label="倡议正文（粘贴 Markdown 文本，后台自动整理为章节和来源结构）" rules={[{ required: true, min: 10 }]}><Input.TextArea rows={20} placeholder="需包含：## 摘要、## 正文、10 个 ### 章节、## 来源与编制依据" /></Form.Item>
+          : <Form.Item name="content_json_text" label="应急知识内容 JSON（alert、disclaimer、sections）" rules={[{ required: true }]}><Input.TextArea rows={14} /></Form.Item>}
         <Form.Item name="source_title" label="官方原文标题" rules={[{ required: true }]}><Input /></Form.Item>
         <Form.Item name="source_url" label="官方原文链接" rules={[{ required: true }, { type: 'url' }]}><Input /></Form.Item>
         <Form.Item name="source_issuer" label="发布机关" rules={[{ required: true }]}><Input /></Form.Item>

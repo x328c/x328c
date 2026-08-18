@@ -126,89 +126,6 @@ export class AdminService {
     await this.redis.geoRemove(`geo:rides:${ride.city_code}`, id.toString());
     return { success: true };
   }
-  async activities(query: AdminContentQueryDto) {
-    const page = query.page ?? 1;
-    const pageSize = query.pageSize ?? 20;
-    const where: Prisma.ActivityWhereInput = {
-      deleted_at: null,
-      ...(query.status !== undefined ? { status: query.status } : {}),
-      ...(query.keyword
-        ? {
-            OR: [
-              { title: { contains: query.keyword } },
-              { user: { nickname: { contains: query.keyword } } },
-            ],
-          }
-        : {}),
-      ...(query.start_time || query.end_time
-        ? {
-            created_at: {
-              ...(query.start_time ? { gte: new Date(query.start_time) } : {}),
-              ...(query.end_time ? { lte: new Date(query.end_time) } : {}),
-            },
-          }
-        : {}),
-    };
-    const [items, total] = await this.prisma.$transaction([
-      this.prisma.activity.findMany({
-        where,
-        include: { user: true },
-        orderBy: { created_at: 'desc' },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
-      this.prisma.activity.count({ where }),
-    ]);
-    return {
-      list: items.map((x) => ({
-        id: x.id.toString(),
-        title: x.title,
-        cover_image: x.cover_image,
-        status: x.status,
-        start_time: x.start_time,
-        register_count: x.register_count,
-        created_at: x.created_at,
-        creator: { id: x.user.id.toString(), nickname: x.user.nickname },
-      })),
-      pagination: { page, pageSize, total },
-    };
-  }
-  async offlineActivity(id: bigint, audit: OperationActorContext) {
-    const activity = await this.prisma.activity.findFirst({ where: { id, deleted_at: null } });
-    if (!activity) throw new AppException(4001, '活动不存在', HttpStatus.NOT_FOUND);
-    await this.prisma.$transaction(async (tx) => {
-      await tx.activity.update({ where: { id }, data: { status: 5 } });
-      await this.operationLogs.appendWithClient(tx, {
-        ...audit,
-        action: 'activity.offline',
-        objectType: 'activity',
-        objectId: id.toString(),
-        reason: 'V1 管理接口下架',
-        beforeSummary: { status: activity.status },
-        afterSummary: { status: 5 },
-      });
-    });
-    return { success: true };
-  }
-  async deleteActivity(id: bigint, audit: OperationActorContext) {
-    const activity = await this.prisma.activity.findUnique({ where: { id } });
-    if (!activity) throw new AppException(4001, '活动不存在', HttpStatus.NOT_FOUND);
-    await this.prisma.$transaction(async (tx) => {
-      await tx.activityRegistration.deleteMany({ where: { activity_id: id } });
-      await tx.report.deleteMany({ where: { activity_id: id } });
-      await tx.activity.delete({ where: { id } });
-      await this.operationLogs.appendWithClient(tx, {
-        ...audit,
-        action: 'activity.delete',
-        objectType: 'activity',
-        objectId: id.toString(),
-        reason: 'V1 管理接口删除',
-        beforeSummary: { status: activity.status },
-        afterSummary: { deleted: true },
-      });
-    });
-    return { success: true };
-  }
   async users(query: AdminUserQueryDto) {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
@@ -251,10 +168,7 @@ export class AdminService {
       include: { profile: true },
     });
     if (!user) throw new AppException(8001, '用户不存在', HttpStatus.NOT_FOUND);
-    const [rideCount, activityCount] = await this.prisma.$transaction([
-      this.prisma.ride.count({ where: { user_id: id, deleted_at: null } }),
-      this.prisma.activity.count({ where: { user_id: id, deleted_at: null } }),
-    ]);
+    const rideCount = await this.prisma.ride.count({ where: { user_id: id, deleted_at: null } });
     return {
       id: user.id.toString(),
       openid: user.openid,
@@ -267,7 +181,7 @@ export class AdminService {
       role: user.role,
       last_login_at: user.last_login_at,
       profile: user.profile,
-      statistics: { ride_count: rideCount, activity_count: activityCount },
+      statistics: { ride_count: rideCount },
     };
   }
   async banUser(id: bigint, reason: string, audit: OperationActorContext) {
@@ -308,32 +222,26 @@ export class AdminService {
   async overview() {
     const start = new Date();
     start.setHours(0, 0, 0, 0);
-    const [total_users, dau, today_new_users, total_rides, total_activities] =
+    const [total_users, dau, today_new_users, total_rides] =
       await this.prisma.$transaction([
         this.prisma.user.count({ where: { deleted_at: null } }),
         this.prisma.user.count({ where: { deleted_at: null, last_login_at: { gte: start } } }),
         this.prisma.user.count({ where: { deleted_at: null, created_at: { gte: start } } }),
         this.prisma.ride.count({ where: { deleted_at: null } }),
-        this.prisma.activity.count({ where: { deleted_at: null } }),
       ]);
-    return { total_users, dau, today_new_users, total_rides, total_activities };
+    return { total_users, dau, today_new_users, total_rides };
   }
   async trend(days: number) {
     const start = new Date();
     start.setHours(0, 0, 0, 0);
     start.setDate(start.getDate() - days + 1);
-    const [users, rides, activities] = await Promise.all([
+    const [users, rides] = await Promise.all([
       this.prisma.user.groupBy({
         by: ['created_at'],
         where: { created_at: { gte: start }, deleted_at: null },
         _count: { id: true },
       }),
       this.prisma.ride.groupBy({
-        by: ['created_at'],
-        where: { created_at: { gte: start }, deleted_at: null },
-        _count: { id: true },
-      }),
-      this.prisma.activity.groupBy({
         by: ['created_at'],
         where: { created_at: { gte: start }, deleted_at: null },
         _count: { id: true },
@@ -347,7 +255,6 @@ export class AdminService {
       }, new Map<string, number>());
     const userMap = makeMap(users);
     const rideMap = makeMap(rides);
-    const activityMap = makeMap(activities);
     return {
       list: Array.from({ length: days }, (_, index) => {
         const date = new Date(start);
@@ -357,7 +264,6 @@ export class AdminService {
           date: key,
           new_users: userMap.get(key) ?? 0,
           new_rides: rideMap.get(key) ?? 0,
-          new_activities: activityMap.get(key) ?? 0,
         };
       }),
     };

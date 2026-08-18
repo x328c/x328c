@@ -1,0 +1,19 @@
+@use "../../../styles/tokens" as *;
+.initiative { min-height: 100vh; padding: $space-4; background: linear-gradient(180deg, #fff4ec 0, $color-bg 420px); }
+.initiative__hero, .initiative__section, .initiative__sources { margin-bottom: $space-3; padding: $space-4; border: 1px solid rgba(199, 71, 0, .08); border-radius: $radius-lg; background: #fff; box-shadow: 0 8px 28px rgba(64, 35, 20, .05); }
+.initiative__hero { padding-top: $space-5; border-top: 8px solid $color-brand; }
+.initiative__eyebrow, .initiative__title, .initiative__heading, .initiative__meta, .initiative__summary, .initiative__copy, .initiative__source-tip, .initiative__source-title, .initiative__source-description, .initiative__notice { display: block; }
+.initiative__eyebrow { margin-bottom: $space-2; color: $color-brand; font-size: 22px; font-weight: 700; letter-spacing: 4px; }
+.initiative__title { font-size: 38px; font-weight: 700; line-height: 1.35; }
+.initiative__section-head { display: flex; align-items: flex-start; gap: $space-2; margin-bottom: $space-2; }
+.initiative__number { flex: 0 0 auto; color: $color-brand; font-size: 25px; font-weight: 800; line-height: 1.45; }
+.initiative__heading { font-size: 30px; font-weight: 700; line-height: 1.45; }
+.initiative__meta { margin-top: $space-1; color: $color-text-secondary; font-size: 22px; }
+.initiative__summary, .initiative__copy, .initiative__notice { margin-top: $space-2; font-size: 25px; line-height: 1.8; }
+.initiative__source-tip { margin: -$space-1 0 $space-3; color: $color-text-secondary; font-size: 22px; }
+.initiative__source { display: flex; gap: $space-2; margin-top: $space-3; padding-top: $space-3; border-top: 1px solid $color-border; }
+.initiative__source-index { display: flex; flex: 0 0 40px; width: 40px; height: 40px; align-items: center; justify-content: center; border-radius: 50%; background: #fff1e7; color: $color-brand; font-size: 22px; font-weight: 700; }
+.initiative__source-content { flex: 1; min-width: 0; }
+.initiative__source-title { color: $link; font-size: 25px; font-weight: 600; line-height: 1.5; }
+.initiative__source-description { margin-top: $space-1; color: $color-text-secondary; font-size: 22px; line-height: 1.65; }
+.initiative__notice { padding: $space-3; color: $color-text-secondary; text-align: center; }

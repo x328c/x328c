@@ -9,7 +9,6 @@ interface Overview {
   dau: number;
   today_new_users: number;
   total_rides: number;
-  total_activities: number;
 }
 
 export function DashboardPage() {
@@ -25,7 +24,6 @@ export function DashboardPage() {
     ['日活跃用户（DAU）', overview?.dau],
     ['今日新增用户', overview?.today_new_users],
     ['约骑总数', overview?.total_rides],
-    ['活动总数', overview?.total_activities],
   ];
 
   return <>

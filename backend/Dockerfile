@@ -32,6 +32,12 @@ COPY package.json package-lock.json ./
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist
 COPY --from=build --chown=node:node /app/prisma ./prisma
+# V2.2 受控数据任务需要在应用容器网络内连接 MySQL；保留脚本、解析器源码和内容源，
+# 通过显式 one-off 命令执行，应用启动时不会自动运行永久清理。
+COPY --chown=node:node scripts ./scripts
+COPY --chown=node:node src ./src
+COPY --chown=node:node content ./content
+COPY --chown=node:node tsconfig.json ./tsconfig.json
 COPY --chown=node:node deploy/docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod 0555 ./docker-entrypoint.sh
 

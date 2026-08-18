@@ -1,4 +1,4 @@
-import { AppstoreOutlined, BookOutlined, CarOutlined, CommentOutlined, ControlOutlined, DashboardOutlined, EnvironmentOutlined, FlagOutlined, LogoutOutlined, SettingOutlined, TeamOutlined } from '@ant-design/icons';
+import { BookOutlined, CarOutlined, CommentOutlined, ControlOutlined, DashboardOutlined, EnvironmentOutlined, FlagOutlined, LogoutOutlined, SettingOutlined, TeamOutlined } from '@ant-design/icons';
 import { Avatar, Breadcrumb, Button, Dropdown, Layout, Menu } from 'antd';
 import type { MenuProps } from 'antd';
 import { useMemo } from 'react';
@@ -11,15 +11,13 @@ const menu: NonNullable<MenuProps['items']> = [
   { key: '/rides', icon: <CarOutlined />, label: <Link to="/rides">约骑管理</Link> },
   { key: '/routes', icon: <EnvironmentOutlined />, label: <Link to="/routes">路线管理</Link> },
   { key: '/regulations', icon: <BookOutlined />, label: <Link to="/regulations">法规管理</Link> },
-  { key: '/forum', icon: <CommentOutlined />, label: <Link to="/forum">论坛治理</Link> },
-  { key: '/activities', icon: <AppstoreOutlined />, label: <Link to="/activities">活动管理</Link> },
   { key: '/users', icon: <TeamOutlined />, label: <Link to="/users">用户管理</Link> },
   { key: '/reports', icon: <FlagOutlined />, label: <Link to="/reports">举报处理</Link> },
   { key: '/feature-flags', icon: <ControlOutlined />, label: <Link to="/feature-flags">功能开关</Link> },
   { key: '/v21-governance', icon: <CommentOutlined />, label: <Link to="/v21-governance">事故指南与安全</Link> },
   { key: '/maintenance', icon: <SettingOutlined />, label: <Link to="/maintenance">集成运维</Link> },
 ];
-const names: Record<string, string> = { '/': '数据概览', '/rides': '约骑管理', '/routes': '路线管理', '/regulations': '法规管理', '/forum': '论坛治理', '/activities': '活动管理', '/users': '用户管理', '/reports': '举报处理', '/feature-flags': '功能开关', '/v21-governance': '事故指南与安全', '/maintenance': '集成运维' };
+const names: Record<string, string> = { '/': '数据概览', '/rides': '约骑管理', '/routes': '路线管理', '/regulations': '法规管理', '/users': '用户管理', '/reports': '举报处理', '/feature-flags': '功能开关', '/v21-governance': '安全内容', '/maintenance': '集成运维' };
 
 export function AdminLayout() {
   const location = useLocation(); const navigate = useNavigate();

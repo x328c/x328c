@@ -8,14 +8,13 @@ type RouteEvent =
   | "route_detail_view"
   | "route_favorite"
   | "route_related_rides_click"
-  | "route_create_companion_click"
-  | "route_create_activity_click";
+  | "route_create_companion_click";
 
 export function trackRouteEvent(event: RouteEvent, data: Record<string, string | number | boolean> = {}): void {
   trackEvent(event, data);
 }
 
-type EventName = RouteEvent | RegulationEvent | ForumEvent;
+type EventName = RouteEvent | RegulationEvent;
 
 function trackEvent(event: EventName, data: Record<string, string | number | boolean> = {}): void {
   try {
@@ -33,10 +32,5 @@ function trackEvent(event: EventName, data: Record<string, string | number | boo
 
 type RegulationEvent = "regulation_module_exposure" | "regulation_search" | "regulation_result_click" | "regulation_source_open" | "regulation_feedback" | "safety_guide_accident_open" | "safety_guide_source_click";
 export function trackRegulationEvent(event: RegulationEvent, data: Record<string, string | number | boolean> = {}): void {
-  trackEvent(event, data);
-}
-
-type ForumEvent = "forum_module_exposure" | "forum_post_view" | "forum_post_submit" | "forum_reply_submit" | "forum_like" | "forum_report";
-export function trackForumEvent(event: ForumEvent, data: Record<string, string | number | boolean> = {}): void {
   trackEvent(event, data);
 }

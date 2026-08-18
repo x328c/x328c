@@ -1,4 +1,4 @@
-import { CheckOutlined, CloudUploadOutlined, EditOutlined, EyeOutlined, FileDoneOutlined, PlusOutlined, RocketOutlined, StopOutlined } from '@ant-design/icons';
+import { CheckOutlined, CloudUploadOutlined, DeleteOutlined, EditOutlined, EyeOutlined, FileDoneOutlined, PlusOutlined, RocketOutlined, StopOutlined } from '@ant-design/icons';
 import { Alert, Button, Descriptions, Form, Input, InputNumber, Modal, Select, Space, Table, Tabs, Tag, Typography, Upload, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import axios from 'axios';
@@ -143,6 +143,10 @@ export function RegulationsPage() {
     });
   };
   const replace = (row: RegulationItem) => { let replacement = ''; let reason = ''; Modal.confirm({ title: '确认标记为已替代？', content: <Space direction="vertical" style={{ width: '100%' }}><Input placeholder="替代法规 ID（必填）" onChange={(event) => { replacement = event.target.value; }} /><Input.TextArea placeholder="操作原因（必填）" onChange={(event) => { reason = event.target.value; }} /></Space>, onOk: async () => { if (!/^\d+$/.test(replacement) || reason.trim().length < 2) { message.error('请填写有效替代法规 ID 和原因'); throw new Error('invalid replacement'); } await adminApi.replaceRegulation(row.id, { replacement_regulation_id: replacement, reason: reason.trim() }); message.success('已标记替代'); await load(page); } }); };
+  const batchDelete = () => reasonAction(`永久删除所选 ${selectedIds.length} 条法规？`, async (reason) => {
+    const result = await adminApi.batchDeleteRegulations(selectedIds, reason);
+    message.success(`已永久删除 ${result.count} 条法规`); setSelectedIds([]); await load(page);
+  }, { danger: true, extra: <Alert showIcon type="error" message="删除不可恢复" description="将同步删除修订、标签关联、地区和纠错反馈；导入记录保留但解除法规引用。" /> });
   const columns: ColumnsType<RegulationItem> = [
     { title: '标题', dataIndex: 'title', ellipsis: true }, { title: '文号', render: (_, row) => row.document_no || '无文号' },
     { title: '机构', dataIndex: 'issuer', ellipsis: true }, { title: '分类', dataIndex: 'category', render: (value) => categories.find((item) => item.value === value)?.label ?? value },
@@ -159,13 +163,14 @@ export function RegulationsPage() {
       {canManage && row.status === 2 ? <Button type="link" onClick={() => act('确认标记失效？', (reason) => adminApi.expireRegulation(row.id, { reason }), '已标记失效')}>失效</Button> : null}
       {canManage && row.status === 2 ? <Button type="link" onClick={() => replace(row)}>已替代</Button> : null}
       {canManage && [2, 3, 4].includes(row.status) ? <Button type="link" danger icon={<StopOutlined />} onClick={() => act('确认下架？', (reason) => adminApi.offlineRegulation(row.id, reason), '法规已下架', true)}>下架</Button> : null}
+      {role === 9 ? <Button type="link" danger icon={<DeleteOutlined />} onClick={() => act(`永久删除“${row.title}”？`, (reason) => adminApi.deleteRegulation(row.id, reason), '法规已永久删除', true)}>删除</Button> : null}
     </Space> },
   ];
   if (disabled) return <Alert type="warning" showIcon message="法规功能已关闭" description="服务端 regulation.enabled 当前为 false；路线与约骑不受影响。" />;
   return <><Tabs items={[
     { key: 'content', label: '法规内容', children: <>
       <Form form={filter} layout="inline" className="filter-bar" onFinish={() => void load(1)}><Form.Item name="keyword"><Input allowClear placeholder="标题 / 文号 / 机构" /></Form.Item><Form.Item name="status"><Select allowClear placeholder="全部状态" style={{ width: 130 }} options={Object.entries(statusMap).map(([value, item]) => ({ value: Number(value), label: item.text }))} /></Form.Item><Form.Item name="category"><Select allowClear placeholder="全部分类" style={{ width: 130 }} options={categories} /></Form.Item><Button type="primary" htmlType="submit">查询</Button><Button onClick={() => { filter.resetFields(); void load(); }}>重置</Button>{canManage ? <Button type="primary" icon={<PlusOutlined />} onClick={() => void open()}>新建草稿</Button> : null}</Form>
-      {canManage || canReview ? <Alert className="page-card" showIcon type="info" message={`批量工作流：已选择 ${selectedIds.length} 条`} description={<Space wrap><Typography.Text>可跨分页选择，单次最多 100 条。批量提交仅接受草稿；批量复核仅接受待复核且非本人录入的修订；批量发布仅超级管理员可执行。</Typography.Text>{canManage ? <Button icon={<FileDoneOutlined />} disabled={!selectedIds.length} onClick={() => batchAct('submit')}>批量提交复核</Button> : null}{canReview ? <Button type="primary" icon={<CheckOutlined />} disabled={!selectedIds.length} onClick={() => batchAct('review')}>批量复核通过</Button> : null}{role === 9 ? <Button danger icon={<RocketOutlined />} disabled={!selectedIds.length} onClick={() => batchAct('publish')}>批量发布</Button> : null}<Button disabled={!selectedIds.length} onClick={() => setSelectedIds([])}>清空选择</Button></Space>} /> : null}
+      {canManage || canReview ? <Alert className="page-card" showIcon type="info" message={`批量工作流：已选择 ${selectedIds.length} 条`} description={<Space wrap><Typography.Text>可跨分页选择，单次最多 100 条。批量操作整批事务执行，不产生部分结果。</Typography.Text>{canManage ? <Button icon={<FileDoneOutlined />} disabled={!selectedIds.length} onClick={() => batchAct('submit')}>批量提交复核</Button> : null}{canReview ? <Button type="primary" icon={<CheckOutlined />} disabled={!selectedIds.length} onClick={() => batchAct('review')}>批量复核通过</Button> : null}{role === 9 ? <Button icon={<RocketOutlined />} disabled={!selectedIds.length} onClick={() => batchAct('publish')}>批量发布</Button> : null}{role === 9 ? <Button danger icon={<DeleteOutlined />} disabled={!selectedIds.length} onClick={batchDelete}>删除所选</Button> : null}<Button disabled={!selectedIds.length} onClick={() => setSelectedIds([])}>清空选择</Button></Space>} /> : null}
       <Table className="page-card" rowKey="id" rowSelection={canManage || canReview ? { selectedRowKeys: selectedIds, preserveSelectedRowKeys: true, onChange: (keys) => setSelectedIds(keys.map(String)) } : undefined} loading={loading} columns={columns} dataSource={items} scroll={{ x: 1500 }} pagination={{ current: page, pageSize: 20, total, onChange: (next) => void load(next) }} />
     </> },
     ...(canManage ? [

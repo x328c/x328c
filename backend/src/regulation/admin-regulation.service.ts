@@ -96,6 +96,67 @@ export class AdminRegulationService {
     return this.serialize(regulation, true);
   }
 
+  async permanentlyDelete(ids: bigint[], reason: string, actor: OperationActorContext) {
+    const uniqueIds = [...new Set(ids.map((id) => id.toString()))].map((id) => BigInt(id));
+    if (!uniqueIds.length || uniqueIds.length !== ids.length || uniqueIds.length > 100) {
+      throw new AppException(54122, '法规 ID 不能重复，且单次最多删除 100 条');
+    }
+
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const regulations = await tx.regulation.findMany({
+          where: { id: { in: uniqueIds }, deleted_at: null },
+          select: { id: true, title: true, document_no: true, current_revision_id: true },
+          orderBy: { id: 'asc' },
+        });
+        if (regulations.length !== uniqueIds.length) {
+          throw new AppException(54120, '法规删除目标不存在', HttpStatus.NOT_FOUND);
+        }
+
+        await tx.regulationImportRow.updateMany({
+          where: { regulation_id: { in: uniqueIds } },
+          data: { regulation_id: null },
+        });
+        await tx.regulationFeedback.deleteMany({ where: { regulation_id: { in: uniqueIds } } });
+        await tx.regulation.updateMany({
+          where: { replacement_regulation_id: { in: uniqueIds } },
+          data: { replacement_regulation_id: null },
+        });
+        await tx.regulation.updateMany({
+          where: { id: { in: uniqueIds } },
+          data: { current_revision_id: null, replacement_regulation_id: null },
+        });
+        await tx.regulation.deleteMany({ where: { id: { in: uniqueIds } } });
+        await tx.regulationTag.deleteMany({ where: { links: { none: {} } } });
+
+        const log = await this.operationLogs.appendWithClient(tx, {
+          ...actor,
+          action: uniqueIds.length === 1 ? 'regulation.delete' : 'regulation.batch_delete',
+          objectType: 'regulation',
+          objectId: uniqueIds.length === 1 ? uniqueIds[0].toString() : 'batch',
+          reason,
+          beforeSummary: {
+            count: regulations.length,
+            items: regulations.map((item) => ({
+              id: item.id.toString(),
+              title: item.title,
+              document_no: item.document_no,
+            })),
+          },
+          afterSummary: { deleted_count: regulations.length },
+        });
+        return {
+          count: regulations.length,
+          ids: regulations.map((item) => item.id.toString()),
+          operation_log_id: log.id,
+        };
+      });
+    } catch (error) {
+      if (error instanceof AppException) throw error;
+      throw new AppException(54123, '法规删除事务失败', HttpStatus.CONFLICT);
+    }
+  }
+
   async feedbacks(query: AdminQueueQueryDto) {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;

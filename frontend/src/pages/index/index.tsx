@@ -71,7 +71,6 @@ export default function Index() {
 
       <View className="ride-square__tabs">
         <View className="ride-square__tab ride-square__tab--active">同行助手</View>
-        <View className="ride-square__tab" onClick={() => Taro.navigateTo({ url: "/pages/activities/index" })}>活动</View>
       </View>
 
       <View className="ride-square__list">

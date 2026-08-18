@@ -100,28 +100,9 @@ export interface CreateRidePayload {
   agreement?: AgreementProof;
 }
 
-export interface ActivitySummary {
-  id: string; title: string; cover_image?: string | null; activity_type: number;
-  start_time: string; end_time: string; meetup_address: string; max_people: number;
-  register_count: number; is_full: boolean; fee_type: number; fee_amount?: string | null;
-  status: number; city_code: string; creator: RideCreator; registration_avatars: string[]; route?: RouteLinkSummary | null;
-}
-export interface ActivityDetail extends ActivitySummary {
-  route_description?: string | null; requirements?: string | null; content?: string | null;
-  contact_name: string; contact_wechat: string; need_approval: boolean;
-  registration_status: number | null;
-}
-export interface ActivityListResponse { list: ActivitySummary[]; pagination: Pagination; }
-export interface CreateActivityPayload {
-  title: string; cover_image?: string; activity_type: number; start_time: string; end_time: string;
-  meetup_address: string; meetup_lat: number | undefined; meetup_lng: number | undefined; max_people: number; fee_type: number;
-  fee_amount?: number; requirements?: string; route_description?: string; content: string;
-  contact_name: string; contact_wechat: string; need_approval: boolean; city_code: string;
-  route_id?: string; route_link_source?: "route_detail" | "create_form"; agreement?: AgreementProof;
-}
 export interface AgreementProof { id: string; version: string; content_hash: string }
 export interface SafetyAgreement extends AgreementProof {
-  code: string; title: string; content: string; scene: "ride_create" | "ride_join" | "activity_create" | "activity_register";
+  code: string; title: string; content: string; scene: "ride_create" | "ride_join";
   effective_at?: string | null; last_legal_reviewed_at?: string | null;
 }
 export interface RouteLinkSummary {
@@ -204,28 +185,3 @@ export interface RegulationDetail extends RegulationSummary {
 export interface RegulationListResponse {
   items: RegulationSummary[]; nextCursor: string | null; hasMore: boolean; suggestions: string[]; disclaimer: string;
 }
-
-export interface ForumBoard { id: string; slug: string; name: string; description: string; sort_order: number }
-export interface ForumCapability {
-  can_write: boolean; reason: "login_required" | "user_disabled" | "muted" | "read_only" | "not_invited" | null;
-  publish_mode: "invite_only" | "gray" | "all";
-  restriction?: { ends_at: string; reason: string };
-}
-export interface ForumAuthor { id: string; nickname: string; avatar_url?: string | null }
-export interface ForumImage { id: string; url: string; order: number }
-export interface ForumPostSummary {
-  id: string; title: string; excerpt?: string; content?: string; content_format?: "plain_text";
-  status: number; moderation_status: 0 | 1 | 2; moderation_reason?: string | null; moderation_error: boolean;
-  board: Pick<ForumBoard, "id" | "slug" | "name">; author: ForumAuthor; images: ForumImage[];
-  liked: boolean; like_count: number; reply_count: number; published_at?: string | null; created_at: string;
-  offline_reason?: string | null;
-}
-export interface ForumPostDetail extends ForumPostSummary { content: string }
-export interface ForumReply {
-  id: string; content: string; content_format: "plain_text"; status: number; moderation_status: 0 | 1 | 2;
-  moderation_reason?: string | null; moderation_error: boolean; author: ForumAuthor;
-  published_at?: string | null; created_at: string; offline_reason?: string | null;
-}
-export interface ForumPostListResponse { items: ForumPostSummary[]; nextCursor: string | null; hasMore: boolean }
-export interface ForumReplyListResponse { items: ForumReply[]; nextCursor: string | null; hasMore: boolean }
-export interface ForumSubmitState { status: number; moderation_status: 0 | 1 | 2; moderation_reason?: string | null; moderation_last_error_code?: string | null; manual_review_required: boolean }

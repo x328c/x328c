@@ -14,8 +14,6 @@ import {
 export const SAFETY_AGREEMENT_SCENES = [
   'ride_create',
   'ride_join',
-  'activity_create',
-  'activity_register',
 ] as const;
 export type SafetyAgreementScene = (typeof SAFETY_AGREEMENT_SCENES)[number];
 

@@ -10,7 +10,7 @@ function App({ children }: PropsWithChildren) {
   useLaunch((options) => {
     useUserStore.getState().hydrate();
     if (!useUserStore.getState().isLoggedIn) {
-      if (["pages/routes/index", "pages/forum/index", "packageRoutes/pages/detail/index", "packageRegulations/pages/index/index", "packageRegulations/pages/detail/index", "packageRegulations/pages/source/index", "packageForum/pages/detail/index"].includes(options.path)) return;
+      if (["pages/routes/index", "packageRoutes/pages/detail/index", "packageRegulations/pages/index/index", "packageRegulations/pages/detail/index", "packageRegulations/pages/source/index", "packageRegulations/pages/safe-riding-initiative/index"].includes(options.path)) return;
       void Taro.reLaunch({ url: "/pages/auth/index" });
       return;
     }

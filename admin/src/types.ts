@@ -5,7 +5,7 @@ export interface ListResult<T> { list: T[]; pagination: Pagination }
 export interface ContentItem { id: string; title: string; status: number; audit_status?: number; created_at: string; departure_time?: string; start_time?: string; join_count?: number; register_count?: number; cover_image?: string | null; creator: { id: string; nickname: string } }
 export interface UserItem { id: string; nickname: string; avatar_url?: string | null; phone?: string | null; status: number; motorcycle_model?: string | null; created_at: string }
 export interface ReportItem { id: string; content_type: 'ride' | 'activity' | 'user' | 'forum_post' | 'forum_reply' | 'route_comment'; content_id?: string | null; reason: number; description?: string | null; evidence_snapshot?: Record<string, unknown> | null; status: number; reporter: { id: string; nickname: string }; reported_user?: { id: string; nickname: string } | null; created_at: string }
-export interface TrendItem { date: string; new_users: number; new_rides: number; new_activities: number }
+export interface TrendItem { date: string; new_users: number; new_rides: number }
 export interface OperationLogItem { id: string; admin_id: string; action: string; object_type: string; object_id: string; reason: string; request_id: string; ip_address?: string | null; before_summary?: Record<string, unknown> | null; after_summary?: Record<string, unknown> | null; created_at: string }
 export type RouteStatus = 0 | 1 | 2;
 export type RouteType = 'scenic' | 'mountain' | 'touring' | 'urban';
@@ -102,9 +102,6 @@ export interface MetricsSnapshot { api: Array<{ route: string; requests: number;
 export interface FeatureFlagSettings {
   route_enabled: boolean;
   regulation_enabled: boolean;
-  forum_enabled: boolean;
-  forum_write_enabled: boolean;
-  forum_publish_mode: 'invite_only' | 'gray' | 'all';
   route_link_enabled: boolean;
   route_comment_enabled: boolean;
   route_comment_read_enabled: boolean;
@@ -122,14 +119,14 @@ export interface SafetyGuideAdminItem {
   revisions: Array<{
     id: string; version: string; reviewed_at?: string | null; published_at?: string | null;
     created_by: string; reviewed_by?: string | null; last_verified_at?: string | null;
-    content_json: Record<string, unknown>; source_title: string; source_url: string;
+    content_json: Record<string, unknown>; content_text?: string | null; source_title: string; source_url: string;
     source_issuer: string; source_published_at?: string | null; source_effective_at?: string | null;
     content_note: string;
   }>;
 }
 export interface SafetyGuideRevisionPayload {
   code: string; title: string; summary: string; version: string;
-  content_json: Record<string, unknown>; source_title: string; source_url: string;
+  content_json?: Record<string, unknown>; content_text?: string; source_title: string; source_url: string;
   source_issuer: string; source_published_at?: string; source_effective_at?: string;
   content_note: string; last_verified_at: string;
 }

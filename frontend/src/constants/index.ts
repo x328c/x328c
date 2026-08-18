@@ -15,13 +15,6 @@ export const RIDE_STYLES = {
   4: "通勤",
   5: "其他",
 } as const;
-export const ACTIVITY_TYPES = {
-  1: "本地活动",
-  2: "长途摩旅",
-  3: "主题活动",
-  4: "官方活动",
-} as const;
-export const FEE_TYPES = { 1: "免费", 2: "AA制", 3: "固定费用" } as const;
 export const STORAGE_KEYS = {
   accessToken: "jiangxing_access_token",
   refreshToken: "jiangxing_refresh_token",

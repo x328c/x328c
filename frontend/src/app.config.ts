@@ -1,5 +1,3 @@
-const includeForumTab = process.env.TARO_APP_TAB_VARIANT === "5";
-
 const tabBarList = [
   {
     pagePath: "pages/index/index",
@@ -13,16 +11,6 @@ const tabBarList = [
     iconPath: "assets/tabbar/route.png",
     selectedIconPath: "assets/tabbar/route-selected.png",
   },
-  ...(includeForumTab
-    ? [
-        {
-          pagePath: "pages/forum/index",
-          text: "论坛",
-          iconPath: "assets/tabbar/forum.png",
-          selectedIconPath: "assets/tabbar/forum-selected.png",
-        },
-      ]
-    : []),
   {
     pagePath: "pages/messages/index",
     text: "助手通知",
@@ -46,16 +34,11 @@ export default defineAppConfig({
     "pages/routes/mine/index",
     "pages/routes/detail/index",
     "pages/routes/square/index",
-    ...(includeForumTab ? ["pages/forum/index"] : []),
     "pages/rides/create/index",
     "pages/rides/detail/index",
     "pages/rides/participants/index",
-    "pages/activities/index",
-    "pages/activities/detail/index",
-    "pages/activities/create/index",
     "pages/profile/edit/index",
     "pages/my/rides/index",
-    "pages/my/activities/index",
     "pages/settings/index",
     "pages/users/profile/index",
     "pages/messages/index",
@@ -68,11 +51,7 @@ export default defineAppConfig({
     },
     {
       root: "packageRegulations",
-      pages: ["pages/index/index", "pages/detail/index", "pages/source/index", "pages/accident-guide/index"],
-    },
-    {
-      root: "packageForum",
-      pages: ["pages/detail/index", "pages/create/index", "pages/my/index"],
+      pages: ["pages/index/index", "pages/detail/index", "pages/source/index", "pages/accident-guide/index", "pages/safe-riding-initiative/index"],
     },
     {
       root: "packageLegal",
@@ -92,4 +71,5 @@ export default defineAppConfig({
     borderStyle: "white",
     list: tabBarList,
   },
+  lazyCodeLoading: "requiredComponents",
 });

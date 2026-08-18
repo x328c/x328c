@@ -23,7 +23,9 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "db:seed:dev": "ts-node --transpile-only scripts/seed-dev.ts"
+    "db:seed:dev": "ts-node --transpile-only scripts/seed-dev.ts",
+    "db:cleanup:v22:preview": "ts-node --transpile-only scripts/cleanup-v22-regulations.ts",
+    "db:import:v22:initiative": "ts-node --transpile-only scripts/import-v22-safe-riding-initiative.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",

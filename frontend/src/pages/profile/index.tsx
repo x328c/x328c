@@ -27,8 +27,7 @@ export default function Profile() {
       <View className="profile__info"><Text>{profile?.nickname || "微信用户"}</Text><Text>{data?.motorcycle_model || "完善资料，找到同频骑友"}</Text><Text>{data?.bio || "暂无简介"}</Text></View>
       <Text className="profile__edit" onClick={() => Taro.navigateTo({ url: "/pages/profile/edit/index" })}>编辑资料</Text>
     </View>
-    <View className="profile__stats"><Text>发布同行</Text><Text>参加活动</Text></View>
-    <View className="profile__menu"><Text onClick={() => Taro.navigateTo({ url: "/packageRegulations/pages/index/index" })}>骑行安全手册 ›</Text><Text onClick={() => Taro.navigateTo({ url: "/pages/my/rides/index" })}>我的同行 ›</Text><Text onClick={() => Taro.navigateTo({ url: "/pages/my/activities/index" })}>我的活动 ›</Text><Text onClick={() => Taro.navigateTo({ url: "/pages/settings/index" })}>设置 ›</Text></View>
+    <View className="profile__menu"><Text onClick={() => Taro.navigateTo({ url: "/packageRegulations/pages/index/index" })}>骑行安全手册 ›</Text><Text onClick={() => Taro.navigateTo({ url: "/pages/my/rides/index" })}>我的同行 ›</Text><Text onClick={() => Taro.navigateTo({ url: "/pages/routes/mine/index" })}>我的路线 ›</Text><Text onClick={() => Taro.navigateTo({ url: "/pages/settings/index" })}>设置 ›</Text></View>
     <View className="profile__logout" onClick={() => void handleLogout()}>退出登录</View>
   </View>;
 }

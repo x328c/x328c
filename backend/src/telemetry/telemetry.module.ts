@@ -1,13 +1,13 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
-import { ForumModule } from '../forum/forum.module';
+import { OptionalTelemetryJwtGuard } from './optional-jwt.guard';
 import { TelemetryController } from './telemetry.controller';
 import { TelemetryService } from './telemetry.service';
 
 @Module({
-  imports: [AuthModule, ForumModule],
+  imports: [AuthModule],
   controllers: [TelemetryController],
-  providers: [TelemetryService],
+  providers: [TelemetryService, OptionalTelemetryJwtGuard],
   exports: [TelemetryService],
 })
 export class TelemetryModule {}

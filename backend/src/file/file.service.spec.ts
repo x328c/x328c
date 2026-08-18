@@ -3,11 +3,11 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { FileService } from './file.service';
 
-describe('FileService forum image verification', () => {
+describe('FileService user-content image verification', () => {
   const config = { getOrThrow: jest.fn(), get: jest.fn() } as unknown as ConfigService;
   const prisma = { fileRecord: { upsert: jest.fn() } } as unknown as PrismaService;
   const service = new FileService(config, prisma);
-  const key = 'forum/2026/08/01/1/123e4567-e89b-12d3-a456-426614174000.png';
+  const key = 'route-comments/2026/08/01/1/123e4567-e89b-12d3-a456-426614174000.png';
   const url = `https://bucket.cos.ap-guangzhou.myqcloud.com/${key}`;
 
   beforeEach(() => {

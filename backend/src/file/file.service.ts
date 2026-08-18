@@ -48,7 +48,6 @@ export class FileService {
     const expected = this.originUrl(dto.file_key, bucket, region);
     if (dto.file_url !== expected) throw new AppException(1001, '文件地址与存储路径不匹配');
     if (
-      dto.file_key.startsWith('forum/') ||
       dto.file_key.startsWith('route-comments/') ||
       dto.file_key.startsWith('user-routes/')
     ) {
@@ -128,7 +127,7 @@ export class FileService {
   }
   private ownsKey(key: string, userId: bigint) {
     return new RegExp(
-      `^(rides|activities|avatars|forum|route-comments|user-routes)/\\d{4}/\\d{2}/\\d{2}/${userId.toString()}/[a-f0-9-]+\\.(jpg|png|webp)$`,
+      `^(rides|avatars|route-comments|user-routes)/\\d{4}/\\d{2}/\\d{2}/${userId.toString()}/[a-f0-9-]+\\.(jpg|png|webp)$`,
     ).test(key);
   }
   private originUrl(key: string, bucket: string, region: string) {
@@ -153,7 +152,7 @@ export class FileService {
       });
       bytes = Buffer.from(response.data);
     } catch {
-      throw new AppException(1001, '无法验证论坛图片，请重新上传');
+      throw new AppException(1001, '无法验证上传图片，请重新上传');
     }
     const metadata = this.imageMetadata(bytes);
     if (!metadata || metadata.mime !== expectedMime) {

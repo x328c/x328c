@@ -1,19 +1,16 @@
 import { request } from './client';
-import type { AdminUser, ContentItem, FeatureFlagSettings, ForumAuditItem, ForumBoardItem, ForumContentPreview, ForumContentType, ForumQueueResult, ForumRestrictionItem, ListResult, MetricsSnapshot, RegulationFeedbackItem, RegulationImportListItem, RegulationImportTask, RegulationItem, RegulationPayload, ReportItem, RouteCommentAdminItem, RouteItem, RoutePayload, SafetyAgreementAdminItem, SafetyGuideAdminItem, SafetyGuideRevisionPayload, TaskFailureItem, TrendItem, UpdateFeatureFlagSettings, UserItem } from '../types';
+import type { AdminUser, ContentItem, FeatureFlagSettings, ListResult, MetricsSnapshot, RegulationFeedbackItem, RegulationImportListItem, RegulationImportTask, RegulationItem, RegulationPayload, ReportItem, RouteCommentAdminItem, RouteItem, RoutePayload, SafetyAgreementAdminItem, SafetyGuideAdminItem, SafetyGuideRevisionPayload, TaskFailureItem, TrendItem, UpdateFeatureFlagSettings, UserItem } from '../types';
 
 export const adminApi = {
   login: (username: string, password: string) => request<{ access_token: string; admin: AdminUser }>({ method: 'POST', url: '/admin/auth/login', data: { username, password } }),
   rides: (params: Record<string, unknown>) => request<ListResult<ContentItem>>({ url: '/admin/rides', params }),
   offlineRide: (id: string) => request<void>({ method: 'POST', url: `/admin/rides/${id}/offline` }),
   deleteRide: (id: string) => request<void>({ method: 'DELETE', url: `/admin/rides/${id}` }),
-  activities: (params: Record<string, unknown>) => request<ListResult<ContentItem>>({ url: '/admin/activities', params }),
-  offlineActivity: (id: string) => request<void>({ method: 'POST', url: `/admin/activities/${id}/offline` }),
-  deleteActivity: (id: string) => request<void>({ method: 'DELETE', url: `/admin/activities/${id}` }),
   users: (params: Record<string, unknown>) => request<ListResult<UserItem>>({ url: '/admin/users', params }),
   userDetail: (id: string) => request<Record<string, unknown>>({ url: `/admin/users/${id}` }),
   banUser: (id: string, reason: string) => request<void>({ method: 'POST', url: `/admin/users/${id}/ban`, data: { reason } }),
   unbanUser: (id: string) => request<void>({ method: 'POST', url: `/admin/users/${id}/unban` }),
-  overview: () => request<{ total_users: number; dau: number; today_new_users: number; total_rides: number; total_activities: number }>({ url: '/admin/stats/overview' }),
+  overview: () => request<{ total_users: number; dau: number; today_new_users: number; total_rides: number }>({ url: '/admin/stats/overview' }),
   trend: (days: 7 | 30) => request<{ list: TrendItem[] }>({ url: '/admin/stats/trend', params: { days } }),
   reports: (params: Record<string, unknown>) => request<ListResult<ReportItem>>({ url: '/admin/reports', params }),
   handleReport: (id: string, action: 'offline' | 'ban' | 'ignore', handling_note?: string) => request<void>({ method: 'POST', url: `/admin/reports/${id}/handle`, data: { action, handling_note } }),
@@ -36,6 +33,8 @@ export const adminApi = {
   expireRegulation: (id: string, data: { reason: string; expired_at?: string; replacement_regulation_id?: string }) => request<void>({ method: 'POST', url: `/admin/regulations/${id}/expire`, data }),
   replaceRegulation: (id: string, data: { reason: string; replacement_regulation_id: string }) => request<void>({ method: 'POST', url: `/admin/regulations/${id}/replace`, data }),
   offlineRegulation: (id: string, reason: string) => request<void>({ method: 'POST', url: `/admin/regulations/${id}/offline`, data: { reason } }),
+  deleteRegulation: (id: string, reason: string) => request<{ count: number; ids: string[] }>({ method: 'DELETE', url: `/admin/regulations/${id}`, data: { reason } }),
+  batchDeleteRegulations: (ids: string[], reason: string) => request<{ count: number; ids: string[] }>({ method: 'POST', url: '/admin/regulations/batch/delete', data: { ids, reason } }),
   previewRegulationImport: (file: File, idempotencyKey: string) => {
     const data = new FormData(); data.append('file', file);
     return request<RegulationImportTask>({ method: 'POST', url: '/admin/regulations/imports', data, headers: { 'Idempotency-Key': idempotencyKey } });
@@ -44,24 +43,11 @@ export const adminApi = {
   regulationImports: (params: Record<string, unknown>) => request<ListResult<RegulationImportListItem>>({ url: '/admin/regulations/imports', params }),
   regulationFeedbacks: (params: Record<string, unknown>) => request<ListResult<RegulationFeedbackItem>>({ url: '/admin/regulations/feedbacks', params }),
   resolveRegulationFeedback: (id: string, reason: string) => request<void>({ method: 'POST', url: `/admin/regulations/feedbacks/${id}/resolve`, data: { reason } }),
-  forumModeration: (params: Record<string, unknown>) => request<ForumQueueResult>({ url: '/admin/forum/moderation', params }),
-  forumReports: (params: Record<string, unknown>) => request<ListResult<ReportItem>>({ url: '/admin/forum/reports', params }),
-  forumPreview: (type: ForumContentType, id: string) => request<ForumContentPreview>({ url: `/admin/forum/content/${type}/${id}` }),
-  approveForumContent: (type: ForumContentType, id: string, reason: string) => request<void>({ method: 'POST', url: `/admin/forum/moderation/${type}/${id}/approve`, data: { reason } }),
-  rejectForumContent: (type: ForumContentType, id: string, reason: string) => request<void>({ method: 'POST', url: `/admin/forum/moderation/${type}/${id}/reject`, data: { reason } }),
-  retryForumContent: (type: ForumContentType, id: string, reason: string) => request<{ result: string }>({ method: 'POST', url: `/admin/forum/moderation/${type}/${id}/retry`, data: { reason } }),
-  offlineForumContent: (type: ForumContentType, id: string, reason: string) => request<void>({ method: 'POST', url: `/admin/forum/content/${type}/${id}/offline`, data: { reason } }),
-  forumBoards: () => request<{ items: ForumBoardItem[] }>({ url: '/admin/forum/boards' }),
-  setForumBoardStatus: (id: string, status: 0 | 1, reason: string) => request<void>({ method: 'POST', url: `/admin/forum/boards/${id}/status`, data: { status, reason } }),
-  forumRestrictions: () => request<{ items: ForumRestrictionItem[] }>({ url: '/admin/forum/restrictions' }),
-  restrictForumUser: (id: string, data: { starts_at?: string; ends_at: string; reason: string }) => request<ForumRestrictionItem>({ method: 'POST', url: `/admin/forum/users/${id}/restrictions`, data }),
-  unrestrictForumUser: (userId: string, restrictionId: string, reason: string) => request<void>({ method: 'DELETE', url: `/admin/forum/users/${userId}/restrictions/${restrictionId}`, data: { reason } }),
-  forumAudit: (params: Record<string, unknown>) => request<ListResult<ForumAuditItem>>({ url: '/admin/forum/audit', params }),
   metrics: () => request<MetricsSnapshot>({ url: '/admin/observability/metrics' }),
   taskFailures: (params: Record<string, unknown>) => request<ListResult<TaskFailureItem>>({ url: '/admin/maintenance/task-failures', params }),
   retryTaskFailure: (id: string) => request<void>({ method: 'POST', url: `/admin/maintenance/task-failures/${id}/retry` }),
   resolveTaskFailure: (id: string, note: string) => request<void>({ method: 'POST', url: `/admin/maintenance/task-failures/${id}/resolve`, data: { note } }),
-  reconcileCounters: (note: string) => request<{ routes: number; forumPosts: number; total: number }>({ method: 'POST', url: '/admin/maintenance/counters/reconcile', data: { note } }),
+  reconcileCounters: (note: string) => request<{ routes: number; total: number }>({ method: 'POST', url: '/admin/maintenance/counters/reconcile', data: { note } }),
   featureFlags: () => request<FeatureFlagSettings>({ url: '/admin/feature-flags' }),
   updateFeatureFlags: (data: UpdateFeatureFlagSettings) => request<FeatureFlagSettings>({ method: 'PATCH', url: '/admin/feature-flags', data }),
   routeComments: (params: Record<string, unknown>) => request<ListResult<RouteCommentAdminItem>>({ url: '/admin/route-comments', params }),

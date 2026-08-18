@@ -1,4 +1,3 @@
-export * from "./ActivityCard";
 export * from "./ConfirmDialog";
 export * from "./Empty";
 export * from "./RideCard";

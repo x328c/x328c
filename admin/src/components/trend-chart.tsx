@@ -8,7 +8,6 @@ const PADDING = { top: 20, right: 20, bottom: 44, left: 54 };
 const SERIES = [
   { key: 'new_users', label: '新增用户', color: '#0958d9' },
   { key: 'new_rides', label: '发布约骑', color: '#c74700' },
-  { key: 'new_activities', label: '发布活动', color: '#237804' },
 ] as const;
 
 export function TrendChart({ data }: { data: TrendItem[] }) {
@@ -25,7 +24,7 @@ export function TrendChart({ data }: { data: TrendItem[] }) {
   const labelStep = Math.max(1, Math.ceil(data.length / 7));
 
   return <div style={{ width: '100%', overflowX: 'auto' }}>
-    <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label="新增用户、发布约骑和发布活动趋势折线图" style={{ display: 'block', width: '100%', minWidth: 640, height: 'auto' }}>
+    <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label="新增用户和发布约骑趋势折线图" style={{ display: 'block', width: '100%', minWidth: 640, height: 'auto' }}>
       {[0, 1, 2, 3, 4].map((step) => {
         const value = Math.round((chart.max * step) / 4);
         const y = PADDING.top + chart.plotHeight - (chart.plotHeight * step) / 4;

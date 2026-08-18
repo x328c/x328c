@@ -6,13 +6,29 @@ import { fileURLToPath } from "node:url";
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const tabVariant = process.argv[2] ?? "4";
 const mode = process.argv[3] ?? "production";
+const defaultProductionApiBase = "https://jiangxingjc.cn/api/v1";
 
-if (!new Set(["4", "5"]).has(tabVariant)) {
-  throw new Error(`不支持的 Tab 变体：${tabVariant}，只能使用 4 或 5`);
+if (tabVariant !== "4") {
+  throw new Error(`V2.2 仅支持 4 Tab 构建，当前为：${tabVariant}`);
 }
 
 if (!new Set(["development", "test", "production"]).has(mode)) {
   throw new Error(`不支持的构建模式：${mode}`);
+}
+
+const productionApiBase =
+  process.env.TARO_APP_API_BASE ?? defaultProductionApiBase;
+
+if (mode === "production") {
+  const apiUrl = new URL(productionApiBase);
+  const isLocalHost = ["localhost", "127.0.0.1", "::1"].includes(apiUrl.hostname);
+  const isIpAddress = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(apiUrl.hostname);
+
+  if (apiUrl.protocol !== "https:" || isLocalHost || isIpAddress) {
+    throw new Error(
+      `生产 API 地址必须使用已备案域名的 HTTPS 地址，当前为：${productionApiBase}`,
+    );
+  }
 }
 
 const taroBin = join(
@@ -28,7 +44,16 @@ const taroBin = join(
 // standalone doctor command on a supported runner.
 const result = spawnSync(taroBin, ["build", "--type", "weapp", "--mode", mode, "--no-check"], {
   cwd: projectRoot,
-  env: { ...process.env, TARO_APP_TAB_VARIANT: tabVariant },
+  env: {
+    ...process.env,
+    TARO_APP_TAB_VARIANT: tabVariant,
+    ...(mode === "production"
+      ? {
+          TARO_APP_API_BASE: productionApiBase,
+          TARO_APP_ENV: "production",
+        }
+      : {}),
+  },
   stdio: "inherit",
 });
 
@@ -39,9 +64,7 @@ const appJsonPath = join(projectRoot, "dist", "app.json");
 const appConfig = JSON.parse(readFileSync(appJsonPath, "utf8"));
 const tabItems = appConfig.tabBar?.list ?? [];
 const expectedCount = Number(tabVariant);
-const expectedTexts = tabVariant === "5"
-  ? ["同行助手", "路线", "论坛", "助手通知", "我的"]
-  : ["同行助手", "路线", "助手通知", "我的"];
+const expectedTexts = ["同行助手", "路线", "助手通知", "我的"];
 
 if (tabItems.length !== expectedCount) {
   throw new Error(`Tab 构建校验失败：期望 ${expectedCount} 项，实际 ${tabItems.length} 项`);
@@ -51,9 +74,16 @@ if (tabItems.map((item) => item.text).join(",") !== expectedTexts.join(",")) {
   throw new Error(`Tab 顺序校验失败：${tabItems.map((item) => item.text).join(",")}`);
 }
 
-const hasForumPage = appConfig.pages.includes("pages/forum/index");
-if (hasForumPage !== (tabVariant === "5")) {
-  throw new Error("论坛页面与 Tab 变体不一致");
+const serializedConfig = JSON.stringify(appConfig);
+for (const retiredPath of ["pages/forum", "packageForum", "pages/activities", "pages/my/activities"]) {
+  if (serializedConfig.includes(retiredPath)) throw new Error(`V2.2 产物仍包含下线路径：${retiredPath}`);
+}
+if (appConfig.lazyCodeLoading !== "requiredComponents") {
+  throw new Error(`组件按需注入配置缺失：${appConfig.lazyCodeLoading ?? "未设置"}`);
+}
+const projectConfig = JSON.parse(readFileSync(join(projectRoot, "project.config.json"), "utf8"));
+if (projectConfig.setting?.minified !== true || projectConfig.setting?.minifyWXML !== true || projectConfig.setting?.minifyWXSS !== true) {
+  throw new Error("微信项目 JS/WXML/WXSS 压缩配置未全部开启");
 }
 
 for (const item of tabItems) {
@@ -64,4 +94,4 @@ for (const item of tabItems) {
   }
 }
 
-console.log(`Tab 构建校验通过：${tabVariant} Tab / ${mode}`);
+console.log(`V2.2 构建校验通过：4 Tab / 按需注入 / 压缩 / 无活动论坛路由 / ${mode}`);

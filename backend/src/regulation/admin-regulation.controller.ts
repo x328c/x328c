@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Headers,
   Param,
@@ -28,7 +29,9 @@ import { RegulationImportService, UploadedCsv } from './regulation-import.servic
 import {
   AdminQueueQueryDto,
   AdminRegulationQueryDto,
+  BatchDeleteRegulationsDto,
   BatchRegulationWorkflowDto,
+  DeleteRegulationDto,
   ExpireRegulationDto,
   RegulationDraftDto,
   UpdateRegulationDraftDto,
@@ -127,6 +130,16 @@ export class AdminRegulationController {
     return this.regulations.batchPublish(dto.ids.map(regulationId), dto.reason, actor(request));
   }
 
+  @Post('batch/delete')
+  @Roles(9)
+  batchDelete(@Req() request: AdminRequest, @Body() dto: BatchDeleteRegulationsDto) {
+    return this.regulations.permanentlyDelete(
+      dto.ids.map(regulationId),
+      dto.reason,
+      actor(request),
+    );
+  }
+
   @Get(':id')
   @Roles(1, 2, 9)
   detail(@Param('id') id: string) {
@@ -138,6 +151,15 @@ export class AdminRegulationController {
     @Body() dto: UpdateRegulationDraftDto,
   ) {
     return this.regulations.update(regulationId(id), dto, actor(request));
+  }
+  @Delete(':id')
+  @Roles(9)
+  delete(
+    @Req() request: AdminRequest,
+    @Param('id') id: string,
+    @Body() dto: DeleteRegulationDto,
+  ) {
+    return this.regulations.permanentlyDelete([regulationId(id)], dto.reason, actor(request));
   }
   @Post(':id/submit-review') submitReview(
     @Req() request: AdminRequest,

@@ -35,20 +35,13 @@ describe('AdminFeatureFlagService', () => {
   it('returns all managed flags using the fail-closed feature flag service', async () => {
     (flags.get as jest.Mock).mockImplementation((key: string) =>
       Promise.resolve(
-        key === 'route.enabled' || key === 'regulation.enabled'
-          ? true
-          : key === 'forum.publish_mode'
-            ? 'invite_only'
-            : false,
+        key === 'route.enabled' || key === 'regulation.enabled' ? true : false,
       ),
     );
 
     await expect(service.getAll()).resolves.toEqual({
       route_enabled: true,
       regulation_enabled: true,
-      forum_enabled: false,
-      forum_write_enabled: false,
-      forum_publish_mode: 'invite_only',
       route_link_enabled: false,
       route_comment_enabled: false,
       route_comment_read_enabled: false,
@@ -60,9 +53,7 @@ describe('AdminFeatureFlagService', () => {
   it('updates all values in one transaction, appends audit and invalidates every cache key', async () => {
     (flags.get as jest.Mock).mockImplementation((key: string) =>
       Promise.resolve(
-        key === 'forum.publish_mode'
-          ? 'all'
-          : !['safety_guide.enabled', 'safety_agreement.enforced'].includes(key),
+        !['safety_guide.enabled', 'safety_agreement.enforced'].includes(key),
       ),
     );
 
@@ -70,9 +61,6 @@ describe('AdminFeatureFlagService', () => {
       {
         route_enabled: true,
         regulation_enabled: true,
-        forum_enabled: true,
-        forum_write_enabled: true,
-        forum_publish_mode: 'all',
         route_link_enabled: true,
         route_comment_enabled: true,
         route_comment_read_enabled: true,
@@ -89,7 +77,7 @@ describe('AdminFeatureFlagService', () => {
       expect.objectContaining({
         action: 'feature_flags.update',
         objectType: 'feature_flags',
-        objectId: 'v2.1',
+        objectId: 'v2.2',
         reason: '本地完整功能联调',
       }),
     );
@@ -97,37 +85,12 @@ describe('AdminFeatureFlagService', () => {
     expect(result).toEqual({
       route_enabled: true,
       regulation_enabled: true,
-      forum_enabled: true,
-      forum_write_enabled: true,
-      forum_publish_mode: 'all',
       route_link_enabled: true,
       route_comment_enabled: true,
       route_comment_read_enabled: true,
       safety_guide_enabled: false,
       safety_agreement_enforced: false,
     });
-  });
-
-  it('rejects forum writes when the forum itself is disabled', async () => {
-    await expect(
-      service.update(
-        {
-          route_enabled: true,
-          regulation_enabled: true,
-          forum_enabled: false,
-          forum_write_enabled: true,
-          forum_publish_mode: 'all',
-          route_link_enabled: false,
-          route_comment_enabled: false,
-          route_comment_read_enabled: false,
-          safety_guide_enabled: false,
-          safety_agreement_enforced: false,
-          reason: '无效配置',
-        },
-        { adminId: 9n, requestId: 'request-2' },
-      ),
-    ).rejects.toMatchObject({ status: 400 });
-    expect(prisma.$transaction as jest.Mock).not.toHaveBeenCalled();
   });
 
   it('limits updates to super administrators', () => {

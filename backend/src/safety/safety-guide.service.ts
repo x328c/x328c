@@ -7,6 +7,10 @@ import { OperationLogService } from '../common/operation-log/operation-log.servi
 import { OperationActorContext } from '../common/operation-log/operation-log.types';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { CreateSafetyGuideRevisionDto } from './dto/guide.dto';
+import {
+  formatSafeRidingInitiativeText,
+  parseSafeRidingInitiativeText,
+} from './initiative-content';
 
 @Injectable()
 export class SafetyGuideService {
@@ -16,14 +20,20 @@ export class SafetyGuideService {
     private readonly logs: OperationLogService,
   ) {}
 
-  async current(code: string) {
+  async current(
+    code: string,
+    notFound: { notFoundCode: number; notFoundMessage: string } = {
+      notFoundCode: 55001,
+      notFoundMessage: '指南不存在或尚未发布',
+    },
+  ) {
     await this.flags.assertEnabled('safety_guide.enabled');
     const article = await this.prisma.safetyGuideArticle.findFirst({
       where: { code, status: 1, current_revision_id: { not: null } },
       include: { current_revision: true },
     });
     if (!article?.current_revision)
-      throw new AppException(55001, '指南不存在或尚未发布', HttpStatus.NOT_FOUND);
+      throw new AppException(notFound.notFoundCode, notFound.notFoundMessage, HttpStatus.NOT_FOUND);
     await this.flags.assertEnabled('safety_guide.enabled');
     const revision = article.current_revision;
     const stale =
@@ -79,13 +89,22 @@ export class SafetyGuideService {
         source_published_at: revision.source_published_at,
         source_effective_at: revision.source_effective_at,
         content_note: revision.content_note,
+        content_text:
+          article.code === 'safe_riding_initiative'
+            ? formatSafeRidingInitiativeText(revision.content_json)
+            : null,
       })),
     }));
   }
 
   async createRevision(dto: CreateSafetyGuideRevisionDto, actor: OperationActorContext) {
-    this.validateContent(dto.content_json);
-    const contentHash = createHash('sha256').update(JSON.stringify(dto.content_json)).digest('hex');
+    const content =
+      dto.code === 'safe_riding_initiative' && dto.content_text
+        ? parseSafeRidingInitiativeText(dto.content_text)
+        : dto.content_json;
+    if (!content) throw new AppException(55005, '指南内容不能为空', HttpStatus.BAD_REQUEST);
+    this.validateContent(dto.code, content as unknown as Record<string, unknown>);
+    const contentHash = createHash('sha256').update(JSON.stringify(content)).digest('hex');
     return this.prisma.$transaction(async (tx) => {
       const article = await tx.safetyGuideArticle.upsert({
         where: { code: dto.code },
@@ -102,7 +121,7 @@ export class SafetyGuideService {
         data: {
           article_id: article.id,
           version: dto.version,
-          content_json: dto.content_json as Prisma.InputJsonValue,
+          content_json: content as unknown as Prisma.InputJsonValue,
           source_title: dto.source_title,
           source_url: dto.source_url,
           source_issuer: dto.source_issuer,
@@ -211,7 +230,11 @@ export class SafetyGuideService {
     return { success: true };
   }
 
-  private validateContent(content: Record<string, unknown>) {
+  private validateContent(code: string, content: Record<string, unknown>) {
+    if (code === 'safe_riding_initiative') {
+      this.validateInitiativeContent(content);
+      return;
+    }
     const alert = content.alert;
     const disclaimer = content.disclaimer;
     const sections = content.sections;
@@ -245,5 +268,47 @@ export class SafetyGuideService {
         );
       });
     if (!valid) throw new AppException(55005, '指南内容结构无效', HttpStatus.BAD_REQUEST);
+  }
+
+  private validateInitiativeContent(content: Record<string, unknown>) {
+    const plainText = (value: unknown, max: number) =>
+      typeof value === 'string' &&
+      value.trim().length > 0 &&
+      value.length <= max &&
+      !/[<>]/.test(value);
+    const initiativeSections = content.sections;
+    const sources = content.sources;
+    const validInitiative =
+      content.schema === 'safe_riding_initiative/v1' &&
+      plainText(content.intro, 2000) &&
+      plainText(content.disclaimer, 1000) &&
+      Array.isArray(initiativeSections) &&
+      initiativeSections.length > 0 &&
+      initiativeSections.length <= 30 &&
+      initiativeSections.every(
+        (section) =>
+          Boolean(section) &&
+          typeof section === 'object' &&
+          !Array.isArray(section) &&
+          plainText(section.title, 200) &&
+          Number.isInteger(section.order) &&
+          plainText(section.body, 5000),
+      ) &&
+      Array.isArray(sources) &&
+      sources.length > 0 &&
+      sources.length <= 20 &&
+      sources.every((source) => {
+        if (!source || typeof source !== 'object' || Array.isArray(source)) return false;
+        const item = source as Record<string, unknown>;
+        if (!plainText(item.title, 200) || !plainText(item.description, 2000) || typeof item.url !== 'string') return false;
+        try {
+          return new URL(item.url).protocol === 'https:';
+        } catch {
+          return false;
+        }
+      });
+    if (!validInitiative) {
+      throw new AppException(55005, '安全骑行倡议章节或 HTTPS 来源结构无效');
+    }
   }
 }

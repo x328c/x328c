@@ -1,4 +1,4 @@
-import { IsBoolean, IsIn, IsString, Length } from 'class-validator';
+import { IsBoolean, IsString, Length } from 'class-validator';
 
 export class UpdateFeatureFlagsDto {
   @IsBoolean()
@@ -6,15 +6,6 @@ export class UpdateFeatureFlagsDto {
 
   @IsBoolean()
   regulation_enabled!: boolean;
-
-  @IsBoolean()
-  forum_enabled!: boolean;
-
-  @IsBoolean()
-  forum_write_enabled!: boolean;
-
-  @IsIn(['invite_only', 'gray', 'all'])
-  forum_publish_mode!: 'invite_only' | 'gray' | 'all';
 
   @IsBoolean()
   route_link_enabled!: boolean;

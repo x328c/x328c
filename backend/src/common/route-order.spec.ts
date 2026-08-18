@@ -1,4 +1,3 @@
-import { ForumController } from '../forum/forum.controller';
 import { RegulationController } from '../regulation/regulation.controller';
 import { RouteController } from '../route/route.controller';
 import { RouteCommentController } from '../route/route-comment.controller';
@@ -20,14 +19,6 @@ describe('V2 static route ordering', () => {
     expect(methods(SafetyAgreementController.prototype).indexOf('active')).toBeGreaterThanOrEqual(
       0,
     );
-  });
-
-  it('declares forum static boards/me/posts routes before dynamic post handlers', () => {
-    const names = methods(ForumController.prototype);
-    expect(names.indexOf('boards')).toBeLessThan(names.indexOf('post'));
-    expect(names.indexOf('myPosts')).toBeLessThan(names.indexOf('post'));
-    expect(names.indexOf('myReplies')).toBeLessThan(names.indexOf('post'));
-    expect(names.indexOf('posts')).toBeLessThan(names.indexOf('post'));
   });
 
   it('keeps route related-rides ahead of the dynamic detail handler', () => {

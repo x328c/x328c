@@ -8,6 +8,7 @@ export type AgreementScene = SafetyAgreement["scene"];
 export const safetyService = {
   activeAgreement: (scene: AgreementScene) => request<SafetyAgreement>({ url: "/safety-agreements/active", params: { scene } }),
   accidentGuide: () => request<SafetyGuide>({ url: "/safety-guides/accident-handling" }),
+  safeRidingInitiative: () => request<SafetyGuide>({ url: "/safety-guides/safe-riding-initiative" }),
 };
 
 export async function confirmSafetyAgreement(scene: AgreementScene, target: string): Promise<{ agreement: AgreementProof; idempotencyKey: string } | null> {

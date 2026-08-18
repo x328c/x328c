@@ -7,6 +7,7 @@ export const TELEMETRY_EVENT_NAMES = [
   'route_detail_view',
   'route_favorite',
   'route_related_rides_click',
+  'route_create_companion_click',
   'regulation_module_exposure',
   'regulation_search',
   'regulation_result_click',
@@ -14,12 +15,6 @@ export const TELEMETRY_EVENT_NAMES = [
   'regulation_feedback',
   'safety_guide_accident_open',
   'safety_guide_source_click',
-  'forum_module_exposure',
-  'forum_post_view',
-  'forum_post_submit',
-  'forum_reply_submit',
-  'forum_like',
-  'forum_report',
 ] as const;
 
 export class TrackTelemetryEventDto {

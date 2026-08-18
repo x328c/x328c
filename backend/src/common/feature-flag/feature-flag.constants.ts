@@ -1,9 +1,6 @@
 export interface FeatureFlagValues {
   'route.enabled': boolean;
   'regulation.enabled': boolean;
-  'forum.enabled': boolean;
-  'forum.write_enabled': boolean;
-  'forum.publish_mode': 'invite_only' | 'gray' | 'all';
   'route.link_enabled': boolean;
   'route.comment_enabled': boolean;
   'route.comment_read_enabled': boolean;
@@ -19,9 +16,6 @@ export type BooleanFeatureFlagKey = {
 export const FEATURE_FLAG_DEFAULTS: FeatureFlagValues = {
   'route.enabled': false,
   'regulation.enabled': false,
-  'forum.enabled': false,
-  'forum.write_enabled': false,
-  'forum.publish_mode': 'invite_only',
   'route.link_enabled': false,
   'route.comment_enabled': true,
   'route.comment_read_enabled': true,

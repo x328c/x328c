@@ -26,7 +26,6 @@ export default function RouteDetailPage() {
   const [commentImages, setCommentImages] = useState<string[]>([]);
   const [commentImageUploading, setCommentImageUploading] = useState(false);
   const [commentsState, setCommentsState] = useState<"loading" | "ready" | "disabled" | "error">("loading");
-  const [showCreate, setShowCreate] = useState(false);
   const isLoggedIn = useUserStore((userState) => userState.isLoggedIn);
 
   const load = async (id: string) => {
@@ -83,13 +82,12 @@ export default function RouteDetailPage() {
     } finally { setFavoriteSaving(false); }
   };
 
-  const createFromRoute = (kind: "ride" | "activity") => {
+  const createFromRoute = () => {
     if (!route) return;
     const link: RouteLinkSummary = { id: route.id, title: route.title, city_code: route.city_code, city_name: route.city_name, difficulty: route.difficulty, distance_km: route.distance_km, start_name: route.points.find((point) => point.type === "start")?.name, end_name: route.points.find((point) => point.type === "end")?.name, available: true };
     Taro.setStorageSync("v21:create-route", link);
-    trackRouteEvent(kind === "ride" ? "route_create_companion_click" : "route_create_activity_click", { route_id: route.id });
-    setShowCreate(false);
-    void Taro.navigateTo({ url: kind === "ride" ? `/pages/rides/create/index?routeId=${route.id}` : `/pages/activities/create/index?routeId=${route.id}` });
+    trackRouteEvent("route_create_companion_click", { route_id: route.id });
+    void Taro.navigateTo({ url: `/pages/rides/create/index?routeId=${route.id}` });
   };
 
   const submitComment = async () => {
@@ -219,7 +217,6 @@ export default function RouteDetailPage() {
     </View>
     <View className="route-detail__section"><Text className="route-detail__heading">相关同行</Text>{rides.length ? rides.map((ride) => <View key={ride.id} className="route-detail__ride" onClick={() => { trackRouteEvent("route_related_rides_click", { route_id: route.id, ride_id: ride.id }); void Taro.navigateTo({ url: `/pages/rides/detail/index?id=${ride.id}` }); }}><View><Text className="route-detail__ride-title">{ride.title}</Text><Text className="route-detail__ride-meta">{new Date(ride.departure_time).toLocaleString()} · {ride.join_count}/{ride.max_people} 人</Text></View><Text>›</Text></View>) : <Text className="route-detail__copy">当前暂无有效相关同行</Text>}</View>
     <Text className="route-detail__updated">信息更新于 {new Date(route.updated_at).toLocaleDateString()}，出发前请复核天气和道路状况。</Text>
-    <View className="route-detail__bottom"><View className="route-detail__favorite" onClick={() => void toggleFavorite()}>{favoriteSaving ? "处理中…" : route.is_favorited ? "★ 已收藏" : "☆ 收藏"}</View><View className="route-detail__primary" onClick={() => setShowCreate(true)}>按此路线发起</View></View>
-    {showCreate ? <View className="route-detail__sheet"><View className="route-detail__sheet-mask" onClick={() => setShowCreate(false)} /><View className="route-detail__sheet-panel"><Text className="route-detail__heading">按此路线发起</Text><Text onClick={() => createFromRoute("ride")}>发起同行</Text><Text onClick={() => createFromRoute("activity")}>发起活动</Text><Text onClick={() => setShowCreate(false)}>取消</Text></View></View> : null}
+    <View className="route-detail__bottom"><View className="route-detail__favorite" onClick={() => void toggleFavorite()}>{favoriteSaving ? "处理中…" : route.is_favorited ? "★ 已收藏" : "☆ 收藏"}</View><View className="route-detail__primary" onClick={createFromRoute}>按此路线发起同行</View></View>
   </View>;
 }

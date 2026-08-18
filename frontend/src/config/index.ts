@@ -3,8 +3,13 @@
  */
 export type AppEnv = "development" | "test" | "production";
 
-const DEFAULT_API_BASE = "http://localhost:3000/api/v1";
-const DEFAULT_ENV: AppEnv = "development";
+const NODE_ENV = process.env.NODE_ENV;
+const DEFAULT_API_BASE =
+  NODE_ENV === "production"
+    ? "https://jiangxingjc.cn/api/v1"
+    : "http://localhost:3000/api/v1";
+const DEFAULT_ENV: AppEnv =
+  NODE_ENV === "production" ? "production" : "development";
 
 function isAppEnv(value: string | undefined): value is AppEnv {
   return value === "development" || value === "test" || value === "production";
