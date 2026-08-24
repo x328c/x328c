@@ -17,7 +17,7 @@ export class RideQueryDto {
   @IsOptional() @IsDateString() end_time?: string;
   @IsOptional() @Type(() => Number) @IsNumber() @Min(-90) @Max(90) latitude?: number;
   @IsOptional() @Type(() => Number) @IsNumber() @Min(-180) @Max(180) longitude?: number;
-  @IsOptional() @Type(() => Number) @IsNumber() @Min(1) @Max(100) radius?: number = 10;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(1) @Max(100) radius?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number = 1;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) pageSize?: number = 20;
 }

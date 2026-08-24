@@ -32,7 +32,7 @@ export default function Messages() {
     if (item.related_id && item.related_type === "ride") void Taro.navigateTo({ url: `/pages/rides/detail/index?id=${item.related_id}` });
   };
   return <View className="messages">
-    <View className="messages__head"><Text>助手通知</Text><Text onClick={async () => { await notificationService.readAll(); void load(); }}>全部已读</Text></View>
+    <View className="messages__head"><Text>助手通知</Text><Text onClick={async () => { await notificationService.readAll(); setItems((current) => current.map((item) => ({ ...item, is_read: true, unread_dot: false }))); setUnread(0); }}>全部已读</Text></View>
     <View className="messages__tabs">{tabs.map(([value, label]) => <Text key={value} className={tab === value ? "messages__on" : ""} onClick={() => { setTab(value); void load(value); }}>{label}</Text>)}</View>
     {loading ? <><Skeleton /><Skeleton /></> : items.length ? items.map((item) => <View key={item.id} className={item.is_read ? "messages__item" : "messages__item messages__item--unread"} onClick={() => void open(item)}><View className="messages__icon">{item.type === 6 ? "◆" : "●"}</View><View className="messages__body"><Text>{item.title}</Text><Text>{item.content}</Text><Text>{formatRelativeTime(item.created_at)}</Text></View>{item.unread_dot ? <View className="messages__dot" /> : null}</View>) : <Empty text="暂时没有助手通知" />}
   </View>;

@@ -14,7 +14,7 @@ export function StatusTag({
   return (
     <Text
       className="status-tag"
-      style={{ color: item.color, borderColor: item.color }}
+      style={{ color: item.color, borderColor: item.color, backgroundColor: item.background }}
     >
       {item.text}
     </Text>

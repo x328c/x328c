@@ -28,8 +28,12 @@ export default function AuthPage() {
     }
     setSubmitting(true);
     try {
-      await loginWithWechat(LEGAL_CONSENT);
-      await redirectAfterLogin();
+      const { isNewUser } = await loginWithWechat(LEGAL_CONSENT);
+      if (isNewUser) {
+        await Taro.redirectTo({ url: "/pages/profile/edit/index?onboarding=1" });
+      } else {
+        await redirectAfterLogin();
+      }
     } catch (error) {
       Taro.showToast({
         title: error instanceof Error ? error.message : "登录失败，请重试",
@@ -75,7 +79,7 @@ export default function AuthPage() {
         <View className="auth-page__privacy-mask" />
         <View className="auth-page__privacy-panel">
           <Text className="auth-page__privacy-title">隐私保护提示</Text>
-          <Text className="auth-page__privacy-copy">登录会通过微信临时登录凭证获取账号标识并建立会话，同时记录本次协议确认。昵称和头像由你登录后主动选择或填写；位置、相册等权限只在使用对应功能时申请。</Text>
+          <Text className="auth-page__privacy-copy">登录会通过微信临时登录凭证获取账号标识并建立会话，同时记录本次协议确认。首次登录后可主动选择微信头像、昵称并自愿填写微信号；位置、相册等权限只在使用对应功能时申请。</Text>
           <Text className="auth-page__privacy-link" onClick={() => void openLegal("privacy-policy")}>阅读完整《隐私政策》</Text>
           <Button className="auth-page__privacy-confirm" onClick={() => setPrivacyOpen(false)}>我已知晓，继续</Button>
         </View>

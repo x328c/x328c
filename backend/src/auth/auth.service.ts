@@ -24,6 +24,7 @@ interface WechatCode2SessionResponse {
 }
 
 export interface WxLoginResult extends AuthTokens {
+  is_new_user: boolean;
   user: {
     id: string;
     nickname: string;
@@ -52,7 +53,11 @@ export class AuthService {
     this.assertCurrentLegalConsent(consent);
     const wechatSession = await this.getWechatSession(code);
     const now = new Date();
-    const user = await this.prisma.$transaction(async (tx) => {
+    const loginResult = await this.prisma.$transaction(async (tx) => {
+      const existingUser = await tx.user.findUnique({
+        where: { openid: wechatSession.openid },
+        select: { id: true },
+      });
       const account = await tx.user.upsert({
         where: { openid: wechatSession.openid },
         create: {
@@ -87,12 +92,14 @@ export class AuthService {
           accepted_at: now,
         },
       });
-      return account;
+      return { account, isNewUser: existingUser === null };
     });
+    const user = loginResult.account;
     const tokens = await this.issueTokens(user.id, user.role);
 
     return {
       ...tokens,
+      is_new_user: loginResult.isNewUser,
       user: {
         id: user.id.toString(),
         nickname: user.nickname,

@@ -1,1 +1,1 @@
-export default definePageConfig({navigationBarTitleText:'编辑资料'});
+export default definePageConfig({ navigationBarTitleText: "编辑资料" });

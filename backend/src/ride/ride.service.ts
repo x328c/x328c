@@ -86,22 +86,55 @@ export class RideService {
           }
         : {}),
     };
+    const hasLocation = query.latitude !== undefined && query.longitude !== undefined;
+    if (query.radius !== undefined && !hasLocation) {
+      throw new AppException(1001, '距离筛选需要提供当前位置');
+    }
+    if (hasLocation) {
+      const items = await this.prisma.ride.findMany({
+        where,
+        include: rideInclude,
+        orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
+      });
+      const sorted = items
+        .map((ride) => ({
+          record: ride,
+          value: this.serializeRide(ride, query.latitude, query.longitude),
+        }))
+        .filter(
+          ({ value }) =>
+            query.radius === undefined ||
+            (value.distance !== null && value.distance <= query.radius),
+        )
+        .sort(
+          (left, right) =>
+            (left.value.distance ?? Number.POSITIVE_INFINITY) -
+              (right.value.distance ?? Number.POSITIVE_INFINITY) ||
+            right.record.created_at.getTime() - left.record.created_at.getTime() ||
+            (right.record.id > left.record.id ? 1 : right.record.id < left.record.id ? -1 : 0),
+        );
+      const total = sorted.length;
+      const start = (page - 1) * pageSize;
+      return {
+        list: sorted.slice(start, start + pageSize).map(({ value }) => value),
+        pagination: { page, pageSize, total },
+      };
+    }
+
     const [items, total] = await this.prisma.$transaction([
       this.prisma.ride.findMany({
         where,
         include: rideInclude,
-        orderBy: { departure_time: 'asc' },
+        orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
       this.prisma.ride.count({ where }),
     ]);
-    const data = items.map((ride) => this.serializeRide(ride, query.latitude, query.longitude));
-    const filtered =
-      query.radius && query.latitude !== undefined && query.longitude !== undefined
-        ? data.filter((ride) => ride.distance !== null && ride.distance <= query.radius!)
-        : data;
-    return { list: filtered, pagination: { page, pageSize, total } };
+    return {
+      list: items.map((ride) => this.serializeRide(ride)),
+      pagination: { page, pageSize, total },
+    };
   }
 
   async nearby(query: NearbyRideDto) {

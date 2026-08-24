@@ -9,6 +9,7 @@ import type { LEGAL_CONSENT } from "@/legal/legal-content";
 export type LegalConsent = typeof LEGAL_CONSENT;
 
 interface LoginResult extends AuthTokens {
+  is_new_user: boolean;
   user: CurrentUser;
 }
 /**
@@ -23,7 +24,7 @@ export async function ensureLogin(force = false): Promise<void> {
 
 export async function loginWithWechat(
   legalConsent: LegalConsent,
-): Promise<void> {
+): Promise<{ isNewUser: boolean }> {
   const login = await Taro.login();
   if (!login.code) throw new Error("微信登录未返回 code");
   const result = await request<LoginResult>({
@@ -37,6 +38,7 @@ export async function loginWithWechat(
   useUserStore
     .getState()
     .setSession(result.access_token, result.refresh_token, result.user);
+  return { isNewUser: result.is_new_user };
 }
 
 /** 先让服务端撤销当前 Access/Refresh Token，再清理小程序本地会话。 */

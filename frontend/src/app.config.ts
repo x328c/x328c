@@ -64,6 +64,12 @@ export default defineAppConfig({
     navigationBarTitleText: "摩搭子助手",
     navigationBarTextStyle: "black",
   },
+  permission: {
+    "scope.userLocation": {
+      desc: "用于根据您与同行集合地点的距离进行排序和筛选",
+    },
+  },
+  requiredPrivateInfos: ["getLocation", "chooseLocation"],
   tabBar: {
     color: "#8c8c8c",
     selectedColor: "#FF6A00",

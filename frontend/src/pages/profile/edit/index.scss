@@ -1,1 +1,142 @@
-.edit-profile{min-height:100vh;padding:30rpx;background:#f5f5f5;&__avatar{display:flex;align-items:center;justify-content:center;width:130rpx;height:130rpx;margin:10rpx auto 30rpx;border-radius:50%;background:#fff1e8;color:#c74700;overflow:hidden;}&__avatar Image{width:100%;height:100%;}&__group{padding:0 26rpx;border-radius:20rpx;background:#fff;}&__group Input,&__group Picker,&__group>Text{display:block;min-height:84rpx;padding:0;border-bottom:1rpx solid #e5e5e5;line-height:84rpx;font-size:27rpx;}&__group Textarea{box-sizing:border-box;width:100%;min-height:130rpx;padding:18rpx 0;border-bottom:1rpx solid #e5e5e5;}&__tag{display:inline-block!important;min-height:0!important;margin:0 12rpx 14rpx 0;padding:12rpx 18rpx!important;border:0!important;border-radius:10rpx;line-height:1!important;background:#f5f5f5;}&__tag--on{background:#fff1e8;color:#c74700;}&__save{margin-top:32rpx;padding:24rpx;border-radius:14rpx;background:#c74700;color:#fff;text-align:center;font-size:30rpx;}}
+.edit-profile {
+  min-height: 100vh;
+  padding: 30rpx;
+  background: #f5f5f5;
+
+  &__intro {
+    margin-bottom: 26rpx;
+    padding: 26rpx;
+    border-radius: 20rpx;
+    background: #fff7f0;
+  }
+
+  &__intro-title,
+  &__intro-copy,
+  &__avatar-hint,
+  &__skip {
+    display: block;
+  }
+
+  &__intro-title {
+    color: #2e2925;
+    font-size: 32rpx;
+    font-weight: 600;
+  }
+
+  &__intro-copy {
+    margin-top: 12rpx;
+    color: #766b63;
+    font-size: 25rpx;
+    line-height: 1.6;
+  }
+
+  &__avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 150rpx;
+    height: 150rpx;
+    margin: 10rpx auto 14rpx;
+    padding: 0;
+    border-radius: 50%;
+    background: #fff1e8;
+    color: #c74700;
+    font-size: 24rpx;
+    overflow: hidden;
+  }
+
+  &__avatar::after {
+    border: 0;
+  }
+
+  &__avatar Image {
+    width: 100%;
+    height: 100%;
+  }
+
+  &__avatar-hint {
+    margin-bottom: 28rpx;
+    color: #999;
+    font-size: 23rpx;
+    text-align: center;
+  }
+
+  &__group {
+    padding: 0 26rpx;
+    border-radius: 20rpx;
+    background: #fff;
+  }
+
+  &__group > Input,
+  &__group > Picker,
+  &__group > Text {
+    display: block;
+    min-height: 84rpx;
+    padding: 0;
+    border-bottom: 1rpx solid #e5e5e5;
+    font-size: 27rpx;
+    line-height: 84rpx;
+  }
+
+  &__field {
+    padding: 20rpx 0;
+    border-bottom: 1rpx solid #e5e5e5;
+  }
+
+  &__label {
+    display: block;
+    margin-bottom: 10rpx;
+    color: #6b625d;
+    font-size: 23rpx;
+  }
+
+  &__input {
+    height: 52rpx;
+    font-size: 27rpx;
+  }
+
+  &__group Textarea {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 130rpx;
+    padding: 18rpx 0;
+    border-bottom: 1rpx solid #e5e5e5;
+  }
+
+  &__tag {
+    display: inline-block !important;
+    min-height: 0 !important;
+    margin: 0 12rpx 14rpx 0;
+    padding: 12rpx 18rpx !important;
+    border: 0 !important;
+    border-radius: 10rpx;
+    background: #f5f5f5;
+    line-height: 1 !important;
+  }
+
+  &__tag--on {
+    background: #fff1e8;
+    color: #c74700;
+  }
+
+  &__save {
+    margin-top: 32rpx;
+    padding: 12rpx 24rpx;
+    border-radius: 14rpx;
+    background: #c74700;
+    color: #fff;
+    font-size: 30rpx;
+    text-align: center;
+  }
+
+  &__save::after {
+    border: 0;
+  }
+
+  &__skip {
+    padding: 26rpx 0 10rpx;
+    color: #8a817b;
+    font-size: 25rpx;
+    text-align: center;
+  }
+}

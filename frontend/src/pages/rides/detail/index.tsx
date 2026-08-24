@@ -66,7 +66,15 @@ export default function RideDetailPage() {
 
   const canJoin = (ride.status === 1 || ride.status === 2) && !ride.is_full;
   const isCreator = useUserStore.getState().user?.id === ride.creator.id;
+  const canManage = isCreator && (ride.status === 1 || ride.status === 2);
   const actionText = isCreator && (ride.status === 1 || ride.status === 2) ? "管理同行" : joined ? "已报名" : ride.is_full ? "名额已满" : ride.status === 1 || ride.status === 2 ? "立即报名" : ride.status === 3 ? "同行进行中" : ride.status === 4 ? "同行已结束" : "同行已取消";
+  const actionClass = joined
+    ? "ride-detail__join ride-detail__join--disabled"
+    : canJoin || canManage
+      ? "ride-detail__join"
+      : ride.status === 3
+        ? "ride-detail__join ride-detail__join--running"
+        : "ride-detail__join ride-detail__join--disabled";
   const percentage = Math.min(100, Math.round((ride.join_count / ride.max_people) * 100));
   const description = ride.description || "发起人暂未填写同行说明。";
 
@@ -120,7 +128,7 @@ export default function RideDetailPage() {
     } finally { setJoining(false); }
   };
   const primaryAction = () => {
-    if (isCreator && (ride.status === 1 || ride.status === 2)) {
+    if (canManage) {
       setShowCreatorActions(true);
       return;
     }
@@ -168,7 +176,7 @@ export default function RideDetailPage() {
     <View className="ride-detail__section"><View className="ride-detail__section-title"><Text>已报名（{ride.join_count}人）</Text><Text onClick={() => Taro.navigateTo({ url: `/pages/rides/participants/index?id=${ride.id}` })}>查看全部 ›</Text></View><ScrollView scrollX className="ride-detail__avatars"><View className="ride-detail__avatars-inner">{participants.length ? participants.slice(0, 8).map((participant) => <View key={participant.user_id} className="ride-detail__participant-wrap">{participant.avatar_url ? <Image className="ride-detail__participant" src={participant.avatar_url} /> : <View className="ride-detail__participant ride-detail__participant--placeholder">{participant.nickname.slice(0, 1)}</View>}{participant.is_creator && <Text className="ride-detail__creator-badge">发起人</Text>}</View>) : <Text className="ride-detail__no-participant">暂时还没有人报名</Text>}</View></ScrollView></View>
     <View className="ride-detail__section"><Text className="ride-detail__section-heading">同行说明</Text><Text className={expanded ? "ride-detail__description ride-detail__description--expanded" : "ride-detail__description"}>{description}</Text>{description.length > 54 && <Text className="ride-detail__expand" onClick={() => setExpanded(!expanded)}>{expanded ? "收起" : "展开"}</Text>}</View>
     <View className="ride-detail__safety">安全提示：请遵守交通法规，佩戴头盔与护具，量力而行。</View>
-    <View className="ride-detail__bottom"><View className="ride-detail__contact" onClick={contact}>联系发起人</View><View className={canJoin || joined ? "ride-detail__join" : "ride-detail__join ride-detail__join--disabled"} onClick={primaryAction}>{joining ? "处理中…" : actionText}</View></View>
+    <View className="ride-detail__bottom"><View className="ride-detail__contact" onClick={contact}>联系发起人</View><View className={actionClass} onClick={primaryAction}>{joining ? "处理中…" : actionText}</View></View>
     <ConfirmDialog visible={showJoinConfirm} title="确认报名" content={`报名“${ride.title}”后请按时到达并遵守安全规则。`} onCancel={() => setShowJoinConfirm(false)} onConfirm={() => void join()} />
     <ConfirmDialog visible={showLeaveConfirm} title="确认取消报名" content="取消后将释放名额给其他骑友，确定要取消吗？" onCancel={() => setShowLeaveConfirm(false)} onConfirm={() => void leave()} />
     {showActions && <View className="ride-detail__sheet"><View className="ride-detail__sheet-mask" onClick={() => setShowActions(false)} /><View className="ride-detail__sheet-panel"><Text className="ride-detail__sheet-title">已报名</Text><Text className="ride-detail__sheet-action" onClick={requestLeave}>取消报名</Text><Text className="ride-detail__sheet-action" onClick={() => setShowActions(false)}>查看详情</Text><Text className="ride-detail__sheet-cancel" onClick={() => setShowActions(false)}>取消</Text></View></View>}
