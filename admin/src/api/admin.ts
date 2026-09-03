@@ -1,8 +1,9 @@
 import { request } from './client';
-import type { AdminUser, ContentItem, FeatureFlagSettings, ListResult, MetricsSnapshot, RegulationFeedbackItem, RegulationImportListItem, RegulationImportTask, RegulationItem, RegulationPayload, ReportItem, RouteCommentAdminItem, RouteItem, RoutePayload, SafetyAgreementAdminItem, SafetyGuideAdminItem, SafetyGuideRevisionPayload, TaskFailureItem, TrendItem, UpdateFeatureFlagSettings, UserItem } from '../types';
+import type { AdminUser, ContentItem, FeatureFlagSettings, ListResult, MetricsSnapshot, RegionCatalog, RegulationFeedbackItem, RegulationImportListItem, RegulationImportTask, RegulationItem, RegulationPayload, ReportItem, RouteCommentAdminItem, RouteItem, RoutePayload, SafetyAgreementAdminItem, SafetyGuideAdminItem, SafetyGuideRevisionPayload, TaskFailureItem, TrendItem, UpdateFeatureFlagSettings, UserItem, UserRouteAdminItem } from '../types';
 
 export const adminApi = {
   login: (username: string, password: string) => request<{ access_token: string; admin: AdminUser }>({ method: 'POST', url: '/admin/auth/login', data: { username, password } }),
+  regions: () => request<RegionCatalog>({ url: '/regions', params: { province_code: '650000' } }),
   rides: (params: Record<string, unknown>) => request<ListResult<ContentItem>>({ url: '/admin/rides', params }),
   offlineRide: (id: string) => request<void>({ method: 'POST', url: `/admin/rides/${id}/offline` }),
   deleteRide: (id: string) => request<void>({ method: 'DELETE', url: `/admin/rides/${id}` }),
@@ -20,6 +21,10 @@ export const adminApi = {
   updateRoute: (id: string, data: RoutePayload) => request<RouteItem>({ method: 'PATCH', url: `/admin/routes/${id}`, data }),
   publishRoute: (id: string) => request<RouteItem>({ method: 'POST', url: `/admin/routes/${id}/publish` }),
   offlineRoute: (id: string, reason: string) => request<RouteItem>({ method: 'POST', url: `/admin/routes/${id}/offline`, data: { reason } }),
+  userRoutes: (params: Record<string, unknown>) => request<ListResult<UserRouteAdminItem>>({ url: '/admin/user-routes', params }),
+  userRoute: (id: string) => request<UserRouteAdminItem>({ url: `/admin/user-routes/${id}` }),
+  offlineUserRoute: (id: string, reason: string) => request<UserRouteAdminItem>({ method: 'POST', url: `/admin/user-routes/${id}/offline`, data: { reason } }),
+  restoreUserRoute: (id: string, reason: string) => request<UserRouteAdminItem>({ method: 'POST', url: `/admin/user-routes/${id}/restore`, data: { reason } }),
   regulations: (params: Record<string, unknown>) => request<ListResult<RegulationItem>>({ url: '/admin/regulations', params }),
   regulation: (id: string) => request<RegulationItem>({ url: `/admin/regulations/${id}` }),
   createRegulation: (data: RegulationPayload) => request<{ id: string }>({ method: 'POST', url: '/admin/regulations', data }),

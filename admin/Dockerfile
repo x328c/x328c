@@ -1,6 +1,10 @@
 FROM node:20-alpine AS build
 
 WORKDIR /app
+ARG VITE_API_BASE_URL=/api/v1
+ARG VITE_TENCENT_MAP_KEY
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+ENV VITE_TENCENT_MAP_KEY=${VITE_TENCENT_MAP_KEY}
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .

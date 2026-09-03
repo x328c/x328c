@@ -1,5 +1,8 @@
 export interface ApiEnvelope<T> { code: number; message: string; data: T; timestamp: string; requestId?: string }
 export interface Pagination { page: number; pageSize: number; total: number }
+export interface RegionDistrict { code: string; name: string }
+export interface RegionCity { code: string; name: string; districts: RegionDistrict[] }
+export interface RegionCatalog { version: string; province: { code: string; name: string }; cities: RegionCity[] }
 export interface AdminUser { id: string; username: string; role: number }
 export interface ListResult<T> { list: T[]; pagination: Pagination }
 export interface ContentItem { id: string; title: string; status: number; audit_status?: number; created_at: string; departure_time?: string; start_time?: string; join_count?: number; register_count?: number; cover_image?: string | null; creator: { id: string; nickname: string } }
@@ -11,24 +14,43 @@ export type RouteStatus = 0 | 1 | 2;
 export type RouteType = 'scenic' | 'mountain' | 'touring' | 'urban';
 export type RouteDifficulty = 'easy' | 'moderate' | 'hard';
 export type RoutePointType = 'start' | 'waypoint' | 'end';
-export interface RoutePointInput { id?: string; order: number; name: string; latitude: string | number; longitude: string | number; type: RoutePointType; description?: string | null }
+export interface RoutePointInput { id?: string; order: number; name: string; latitude: string | number; longitude: string | number; type: RoutePointType; description?: string | null; address?: string | null; province_code?: string | null; city_code?: string | null; district_code?: string | null }
 export interface RouteItem {
   id: string; title: string; summary?: string | null; cover_image?: string | null; images: string[];
-  city_code?: string | null; city_name?: string | null; type?: RouteType | null; difficulty?: RouteDifficulty | null;
+  city_code?: string | null; district_code?: string | null; city_name?: string | null; type?: RouteType | null; difficulty?: RouteDifficulty | null;
   distance_km?: string | null; duration_min?: number | null; polyline: Array<{ latitude: number; longitude: number }>;
   road_condition?: string | null; suitable_motorcycles?: string | null; best_season?: string | null;
   safety_notice?: string | null; status: RouteStatus; sort_weight: number; favorite_count: number;
   published_at?: string | null; offlined_at?: string | null; offline_reason?: string | null;
   created_at: string; updated_at: string; maintainer: { id: string; username: string };
   points: RoutePointInput[]; related_ride_ids: string[];
+  external_route_url?: string | null; external_route_provider?: string | null; external_url_status?: number;
+  polyline_status?: number; polyline_provider?: string | null; polyline_updated_at?: string | null;
+}
+export interface UserRouteAdminItem {
+  id: string; title: string; description?: string | null;
+  start_location: string; start_lat: number; start_lng: number;
+  end_location?: string | null; end_lat?: number | null; end_lng?: number | null;
+  city_code?: string | null; district_code?: string | null;
+  total_distance?: number | null; estimated_time?: number | null; difficulty?: number | null;
+  images: string[]; visibility: 1 | 2; status: 1 | 2; view_count: number; favorite_count: number;
+  external_route_url?: string | null; polyline_provider?: string | null;
+  offlined_at?: string | null; offline_reason?: string | null; offlined_by?: string | null;
+  created_at: string; updated_at: string;
+  creator: { id: string; nickname: string; avatar_url?: string | null; status: number };
+  points: RoutePointInput[];
+  regions: Array<{ city_code: string; district_code: string; has_start: boolean; has_waypoint: boolean; point_count: number }>;
+  linked_ride_ids: string[];
+  counts: { favorites: number; comments: number; ride_links: number };
 }
 export interface RoutePayload {
-  title: string; summary?: string; cover_image?: string; images?: string[]; city_code?: string; city_name?: string;
+  title: string; summary?: string; cover_image?: string; images?: string[]; city_code?: string; district_code?: string; city_name?: string;
   type?: RouteType; difficulty?: RouteDifficulty; distance_km?: number; duration_min?: number;
   polyline?: Array<{ latitude: number; longitude: number }>; road_condition?: string;
   suitable_motorcycles?: string; best_season?: string; safety_notice?: string; sort_weight?: number;
   points?: Array<Omit<RoutePointInput, 'id' | 'latitude' | 'longitude'> & { latitude: number; longitude: number }>;
   related_ride_ids?: string[];
+  external_route_url?: string;
 }
 export type RegulationStatus = 0 | 1 | 2 | 3 | 4 | 5;
 export type RevisionStatus = 0 | 1 | 2 | 3;
