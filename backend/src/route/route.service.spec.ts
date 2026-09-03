@@ -14,6 +14,7 @@ describe('RouteService public contract', () => {
     routeFavorite: { findMany: jest.fn(), findUnique: jest.fn() },
     routeRideLink: { findMany: jest.fn() },
     ride: { findMany: jest.fn() },
+    $queryRaw: jest.fn(),
     $transaction: jest.fn((callback: (client: typeof tx) => unknown) => callback(tx)),
   } as unknown as PrismaService;
   const cache = {
@@ -33,6 +34,7 @@ describe('RouteService public contract', () => {
     (cache.setList as jest.Mock).mockResolvedValue(undefined);
     (cache.invalidate as jest.Mock).mockResolvedValue(undefined);
     routeModel.findMany.mockResolvedValue([]);
+    (prisma.$queryRaw as jest.Mock).mockReset().mockResolvedValue([]);
   });
 
   it('never requests draft, offline or soft-deleted routes for the public list', async () => {
@@ -54,6 +56,96 @@ describe('RouteService public contract', () => {
 
   it('rejects a malformed cursor before querying the database', async () => {
     await expect(service.list({ cursor: 'not-a-cursor' })).rejects.toMatchObject({ status: 400 });
+    expect(routeModel.findMany).not.toHaveBeenCalled();
+  });
+
+  it.each([0, 1, 2, 3, 4, 5])(
+    'keeps %i local starts before newer through routes across cursor pages',
+    async (startCount) => {
+      const makeRoute = (id: number, local: boolean) => ({
+        id: BigInt(id),
+        title: String(id),
+        summary: null,
+        cover_image: null,
+        city_code: local ? '650100' : '652300',
+        city_name: null,
+        district_code: null,
+        type: null,
+        difficulty: null,
+        distance_km: null,
+        duration_min: null,
+        favorite_count: 0,
+        sort_weight: 1,
+        updated_at: new Date('2026-09-03T00:00:00Z'),
+        regions: [{ city_code: '650100', district_code: '', has_start: local }],
+      });
+      const starts = Array.from({ length: startCount }, (_, i) => makeRoute(20 - i, true));
+      const through = [makeRoute(100, false), makeRoute(99, false), makeRoute(98, false)];
+      (prisma.$queryRaw as jest.Mock).mockImplementation(async (query: Prisma.Sql) => {
+        const cursorId = query.values.find((value) => typeof value === 'bigint') as
+          bigint | undefined;
+        return through
+          .filter((row) => cursorId === undefined || row.id < cursorId)
+          .slice(0, Number(query.values.at(-1)));
+      });
+      routeModel.findMany.mockImplementation(async ({ where, take }) => {
+        const after = where.AND?.find((part: { OR?: Array<{ id?: { lt: bigint } }> }) =>
+          part.OR?.some((clause) => clause.id?.lt !== undefined),
+        );
+        const cursorId = after?.OR.at(-1)?.id.lt;
+        const isThrough = JSON.stringify(where, (_, value) =>
+          typeof value === 'bigint' ? String(value) : value,
+        ).includes('regions');
+        const rows = isThrough ? through : starts;
+        return rows.filter((row) => cursorId === undefined || row.id < cursorId).slice(0, take);
+      });
+      const ids: string[] = [];
+      let cursor: string | undefined;
+      for (let page = 0; page < 10; page++) {
+        const result = await service.list({ city_code: '650100', limit: 2, cursor });
+        ids.push(...result.items.map((item) => item.id));
+        if (!result.hasMore) break;
+        expect(result.nextCursor).not.toBeNull();
+        cursor = result.nextCursor!;
+      }
+      expect(ids).toEqual([...starts, ...through].map((row) => String(row.id)));
+      expect(routeModel.findMany.mock.calls.every(([args]) => args.take <= 3)).toBe(true);
+      expect(cache.getList).toHaveBeenCalledWith(expect.objectContaining({ ordering_version: 2 }));
+    },
+  );
+
+  it('retains coverage matches with an unknown primary district', async () => {
+    (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ id: 10n }]);
+    await service.list({ city_code: '650100', district_code: '650102', region_scope: 'through' });
+    expect(routeModel.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          AND: [
+            { regions: { some: { city_code: '650100', district_code: '650102' } } },
+            {
+              OR: [
+                { city_code: { not: '650100' } },
+                { city_code: null },
+                { district_code: { not: '650102' } },
+                { district_code: null },
+              ],
+            },
+          ],
+        }),
+      }),
+    );
+  });
+
+  it('rejects an unknown cursor partition', async () => {
+    const cursor = Buffer.from(
+      JSON.stringify({
+        sortWeight: 0,
+        updatedAt: new Date().toISOString(),
+        id: '1',
+        phase: 'unknown',
+      }),
+    ).toString('base64url');
+    await expect(service.list({ cursor })).rejects.toMatchObject({ status: 400 });
     expect(routeModel.findMany).not.toHaveBeenCalled();
   });
 

@@ -20,6 +20,7 @@ import { TelemetryModule } from './telemetry/telemetry.module';
 import { MaintenanceModule } from './maintenance/maintenance.module';
 import { SafetyModule } from './safety/safety.module';
 import { SettingsModule } from './settings/settings.module';
+import { RegionModule } from './region/region.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { SettingsModule } from './settings/settings.module';
     MaintenanceModule,
     SafetyModule,
     SettingsModule,
+    RegionModule,
   ],
   controllers: [AppController, RetiredFeaturesController],
   providers: [AppService],

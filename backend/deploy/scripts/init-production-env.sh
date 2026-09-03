@@ -66,6 +66,9 @@ COS_APP_ID=your-cos-app-id
 
 TENCENT_COS_BUCKET=your-bucket
 TENCENT_COS_REGION=ap-beijing
+TENCENT_MAP_ROUTE_KEY=optional-driving-route-webservice-key
+TENCENT_MAP_ROUTE_SECRET=optional-driving-route-secret-key
+VITE_TENCENT_MAP_KEY=your-tencent-map-web-js-key
 SUBSCRIPTION_MESSAGE_ENABLED=false
 WECHAT_SUBSCRIBE_RIDE_JOIN_TEMPLATE_ID=your-template-id
 WECHAT_SUBSCRIBE_RIDE_DEPARTURE_TEMPLATE_ID=your-template-id

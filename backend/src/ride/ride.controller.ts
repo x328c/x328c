@@ -48,6 +48,18 @@ export class RideController {
   participants(@Param() params: EntityIdParamDto, @Query() query: ParticipantQueryDto) {
     return this.rideService.participants(BigInt(params.id), query);
   }
+  @Get(':id/share')
+  share(@Param() params: EntityIdParamDto) {
+    return this.rideService.share(BigInt(params.id));
+  }
+  @Get(':id/relaunch-template')
+  @UseGuards(JwtAuthGuard)
+  relaunchTemplate(
+    @Req() request: Request & { user: JwtPayload },
+    @Param() params: EntityIdParamDto,
+  ) {
+    return this.rideService.relaunchTemplate(BigInt(request.user.sub), BigInt(params.id));
+  }
   @Post()
   @UseGuards(JwtAuthGuard)
   create(
@@ -75,6 +87,11 @@ export class RideController {
   @UseGuards(JwtAuthGuard)
   cancel(@Req() request: Request & { user: JwtPayload }, @Param() params: EntityIdParamDto) {
     return this.rideService.cancel(BigInt(request.user.sub), BigInt(params.id));
+  }
+  @Post(':id/finish')
+  @UseGuards(JwtAuthGuard)
+  finish(@Req() request: Request & { user: JwtPayload }, @Param() params: EntityIdParamDto) {
+    return this.rideService.finish(BigInt(request.user.sub), BigInt(params.id));
   }
   @Post(':id/transfer-creator')
   @UseGuards(JwtAuthGuard)

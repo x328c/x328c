@@ -50,6 +50,11 @@ export class RouteController {
     return this.routes.relatedRides(routeId(id));
   }
 
+  @Get(':id/share')
+  share(@Param('id') id: string) {
+    return this.routes.share(routeId(id));
+  }
+
   @Get(':id/comments')
   @UseGuards(OptionalJwtAuthGuard)
   commentsList(

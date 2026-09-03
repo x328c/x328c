@@ -12,6 +12,7 @@ import {
 
 export class RideQueryDto {
   @IsOptional() @IsString() city_code?: string;
+  @IsOptional() @IsString() district_code?: string;
   @IsOptional() @Type(() => Number) @IsInt() @IsIn([1, 2, 3, 4, 5]) ride_style?: number;
   @IsOptional() @IsDateString() start_time?: string;
   @IsOptional() @IsDateString() end_time?: string;

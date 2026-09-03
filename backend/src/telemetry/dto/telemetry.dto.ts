@@ -1,6 +1,8 @@
 import { IsIn, IsObject, IsString, Length } from 'class-validator';
+import { REGION_EVENT_NAMES } from '../region-telemetry';
 
 export const TELEMETRY_EVENT_NAMES = [
+  ...REGION_EVENT_NAMES,
   'route_module_exposure',
   'route_list_result',
   'route_filter',

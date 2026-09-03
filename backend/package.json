@@ -25,6 +25,8 @@
     "prisma:studio": "prisma studio",
     "db:seed:dev": "ts-node --transpile-only scripts/seed-dev.ts",
     "db:seed:v22:ride-distance": "ts-node --transpile-only scripts/seed-v22-ride-distance-test.ts",
+    "db:backfill:v23:preview": "ts-node --transpile-only scripts/backfill-v23-route-regions.ts",
+    "db:backfill:v23:apply": "ts-node --transpile-only scripts/backfill-v23-route-regions.ts --apply V23-BACKFILL",
     "db:cleanup:v22:preview": "ts-node --transpile-only scripts/cleanup-v22-regulations.ts",
     "db:import:v22:initiative": "ts-node --transpile-only scripts/import-v22-safe-riding-initiative.ts"
   },

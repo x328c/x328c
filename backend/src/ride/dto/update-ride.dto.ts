@@ -26,4 +26,5 @@ export class UpdateRideDto {
   @IsOptional() @IsString() @Length(1, 5000) description?: string;
   @IsOptional() @IsObject() rules?: Record<string, unknown>;
   @IsOptional() @IsString() @Length(1, 20) city_code?: string;
+  @IsOptional() @IsString() @Length(1, 20) district_code?: string;
 }

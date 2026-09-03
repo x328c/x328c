@@ -23,6 +23,17 @@ export class UserService {
 
   async updateProfile(userId: bigint, dto: UpdateProfileDto) {
     const { nickname, avatar_url, gender, ...profileData } = dto;
+    if (profileData.wechat_id !== undefined) {
+      const normalized = this.normalizeWechatId(profileData.wechat_id);
+      const duplicate = await this.prisma.userProfile.findFirst({
+        where: { wechat_id_normalized: normalized, user_id: { not: userId }, deleted_at: null },
+        select: { id: true },
+      });
+      if (duplicate) throw new AppException(51111, '该微信号已被使用', HttpStatus.CONFLICT);
+      profileData.wechat_id = profileData.wechat_id.normalize('NFKC').trim();
+      (profileData as typeof profileData & { wechat_id_normalized?: string }).wechat_id_normalized =
+        normalized;
+    }
     const userData: Prisma.UserUpdateInput = {};
     if (nickname !== undefined) userData.nickname = nickname;
     if (avatar_url !== undefined) userData.avatar_url = avatar_url;
@@ -49,6 +60,18 @@ export class UserService {
       include: { profile: true },
     });
     return this.toOwnerProfile(user);
+  }
+
+  async assertProfileComplete(userId: bigint): Promise<void> {
+    const user = await this.findActiveUser(userId);
+    const missing = this.missingProfileFields(user);
+    if (missing.length) {
+      throw new AppException(
+        51110,
+        `请先完善个人资料：${missing.join('、')}`,
+        HttpStatus.PRECONDITION_REQUIRED,
+      );
+    }
   }
 
   async getPublicProfile(viewerId: bigint, userId: bigint) {
@@ -192,6 +215,7 @@ export class UserService {
           location_visible: 0,
           bio: null,
           wechat_id: null,
+          wechat_id_normalized: null,
           wechat_visible: 0,
           deleted_at: now,
         },
@@ -262,7 +286,27 @@ export class UserService {
             bio: user.profile.bio,
           }
         : null,
+      profile_complete: this.missingProfileFields(user).length === 0,
+      missing_profile_fields: this.missingProfileFields(user),
     };
+  }
+
+  private missingProfileFields(user: ProfileRecord): string[] {
+    const missing: string[] = [];
+    const nickname = user.nickname?.normalize('NFKC').trim();
+    if (!nickname || ['新骑友', '微信用户'].includes(nickname)) missing.push('用户名称');
+    if (!user.avatar_url) missing.push('头像');
+    if (!user.profile?.wechat_id && !user.phone) missing.push('微信号或手机号');
+    if (!user.profile?.motorcycle_model) missing.push('车型');
+    return missing;
+  }
+
+  private normalizeWechatId(value: string): string {
+    const normalized = value.normalize('NFKC').trim().toLowerCase();
+    if (!/^[a-z][a-z0-9_-]{5,19}$/.test(normalized)) {
+      throw new AppException(51112, '微信号需为6至20位并以字母开头');
+    }
+    return normalized;
   }
 
   private async hasSharedParticipation(viewerId: bigint, ownerId: bigint): Promise<boolean> {

@@ -26,7 +26,10 @@ describe('safe riding initiative text format', () => {
   });
 
   it('keeps the deployable content source aligned with the V2.2 document', () => {
-    const documentSource = readFileSync(resolve(process.cwd(), '../docs/V2.2文档/安全骑行倡议内容稿.md'), 'utf8');
+    const documentSource = readFileSync(
+      resolve(process.cwd(), '../docs/V2.2文档/2.2.2/安全骑行倡议内容稿.md'),
+      'utf8',
+    );
     expect(parseSafeRidingInitiativeText(source)).toEqual(parseSafeRidingInitiativeText(documentSource));
   });
 });

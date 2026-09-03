@@ -27,6 +27,26 @@ export class RoutePointDto {
   @IsString()
   @MaxLength(300)
   description?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  address?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  province_code?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  city_code?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  district_code?: string;
 }
 
 export class PolylinePointDto {

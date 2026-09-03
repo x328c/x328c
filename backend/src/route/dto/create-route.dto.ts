@@ -48,6 +48,11 @@ export class CreateRouteDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(20)
+  district_code?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(50)
   city_name?: string;
 
@@ -79,6 +84,11 @@ export class CreateRouteDto {
   @ValidateNested({ each: true })
   @Type(() => PolylinePointDto)
   polyline?: PolylinePointDto[];
+
+  @IsOptional()
+  @IsUrl({ protocols: ['https'], require_protocol: true })
+  @MaxLength(1000)
+  external_route_url?: string;
 
   @IsOptional()
   @IsString()

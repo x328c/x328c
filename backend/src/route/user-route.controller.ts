@@ -59,6 +59,12 @@ export class UserRouteController {
     return this.routes.detail(BigInt(params.id), req.user ? BigInt(req.user.sub) : undefined);
   }
 
+  @Get(':id/share')
+  @UseGuards(OptionalJwtAuthGuard)
+  share(@Req() req: OptionalUserRequest, @Param() params: EntityIdParamDto) {
+    return this.routes.share(BigInt(params.id), req.user ? BigInt(req.user.sub) : undefined);
+  }
+
   @Put(':id')
   @UseGuards(JwtAuthGuard)
   update(

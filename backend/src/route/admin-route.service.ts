@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable, Optional } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
 import { OperationLogService } from '../common/operation-log/operation-log.service';
@@ -7,6 +7,9 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import { AdminRouteQueryDto, CreateRouteDto, RoutePointDto, UpdateRouteDto } from './dto';
 import { ROUTE_LIMITS, ROUTE_STATUS } from './route.constants';
 import { RouteCacheService } from './route-cache.service';
+import { normalizeExternalRouteUrl } from './external-route-link';
+import { MapProviderService } from '../map/map-provider.service';
+import { RegionService } from '../region/region.service';
 
 const adminRouteInclude = {
   maintainer: { select: { id: true, username: true } },
@@ -22,6 +25,8 @@ export class AdminRouteService {
     private readonly prisma: PrismaService,
     private readonly operationLogs: OperationLogService,
     private readonly cache: RouteCacheService,
+    @Optional() private readonly maps?: MapProviderService,
+    @Optional() private readonly regions: RegionService = new RegionService(),
   ) {}
 
   async list(query: AdminRouteQueryDto) {
@@ -61,12 +66,14 @@ export class AdminRouteService {
   }
 
   async create(dto: CreateRouteDto, actor: OperationActorContext) {
+    const prepared = await this.prepareMapData(dto);
+    dto = prepared.dto;
     this.validateDraft(dto);
     const routeId = await this.prisma.$transaction(async (tx) => {
       await this.assertRelatedRides(tx, dto.related_ride_ids);
       const route = await tx.route.create({
         data: {
-          ...this.routeData(dto),
+          ...this.routeData(dto, prepared.provider),
           maintainer_id: actor.adminId,
           status: ROUTE_STATUS.DRAFT,
         } as Prisma.RouteUncheckedCreateInput,
@@ -74,6 +81,13 @@ export class AdminRouteService {
       if (dto.points?.length) {
         await tx.routePoint.createMany({ data: this.pointData(dto.points, route.id) });
       }
+      await this.replaceRegionCoverage(
+        tx,
+        route.id,
+        dto.points ?? [],
+        dto.city_code,
+        dto.district_code,
+      );
       if (dto.related_ride_ids?.length) {
         await tx.routeRideLink.createMany({
           data: dto.related_ride_ids.map((rideId) => ({
@@ -98,15 +112,33 @@ export class AdminRouteService {
   }
 
   async update(id: bigint, dto: UpdateRouteDto, actor: OperationActorContext) {
-    this.validateDraft(dto);
     const route = await this.findRoute(id);
+    if (dto.points === undefined &&
+      (dto.city_code !== undefined || dto.district_code !== undefined || dto.city_name !== undefined)) {
+      const start = route.points.find((point) => point.type === 'start');
+      if (start) {
+        this.regions.assertSupported(start.city_code ?? undefined, start.district_code ?? undefined, '起点');
+        if ((dto.city_code !== undefined && dto.city_code !== start.city_code) ||
+          (dto.district_code !== undefined && (dto.district_code || null) !== (start.district_code || null)))
+          throw new AppException(53007, '请在地图点位中修改起点所属地区，不能仅修改路线主城市');
+        dto = { ...dto, city_code: start.city_code!, district_code: start.district_code ?? '', city_name: this.regions.city(start.city_code!)!.name };
+      } else {
+        const cityCode = dto.city_code ?? route.city_code ?? undefined;
+        const districtCode = dto.district_code ?? (dto.city_code !== undefined && dto.city_code !== route.city_code ? undefined : route.district_code ?? undefined);
+        this.regions.assertSupported(cityCode, districtCode, '路线所属地区');
+        dto = { ...dto, city_code: cityCode, district_code: districtCode ?? '', city_name: this.regions.city(cityCode!)!.name };
+      }
+    }
+    const prepared = await this.prepareMapData(dto);
+    dto = prepared.dto;
+    this.validateDraft(dto);
     const nextStatus = route.status === ROUTE_STATUS.PUBLISHED ? ROUTE_STATUS.DRAFT : route.status;
     await this.prisma.$transaction(async (tx) => {
       await this.assertRelatedRides(tx, dto.related_ride_ids);
       const mutation = await tx.route.updateMany({
         where: { id, status: route.status, deleted_at: null },
         data: {
-          ...this.routeData(dto),
+          ...this.routeData(dto, prepared.provider),
           status: nextStatus,
           ...(route.status === ROUTE_STATUS.PUBLISHED
             ? { published_at: null, offlined_at: null, offline_reason: null }
@@ -120,6 +152,13 @@ export class AdminRouteService {
         if (dto.points.length) {
           await tx.routePoint.createMany({ data: this.pointData(dto.points, id) });
         }
+        await this.replaceRegionCoverage(
+          tx,
+          id,
+          dto.points,
+          dto.city_code ?? route.city_code ?? undefined,
+          dto.district_code ?? route.district_code ?? undefined,
+        );
       }
       if (dto.related_ride_ids !== undefined) {
         await tx.routeRideLink.deleteMany({ where: { route_id: id } });
@@ -167,7 +206,15 @@ export class AdminRouteService {
         },
       });
       this.assertStateMutation(mutation.count);
-      const updated = await tx.route.findUniqueOrThrow({ where: { id } });
+      const updated = await tx.route.findUniqueOrThrow({ where: { id }, include: adminRouteInclude });
+      // Recheck the locked record, not only the pre-transaction snapshot. Publish
+      // also rebuilds coverage for valid historical drafts with missing indexes.
+      this.validatePublish(updated);
+      await this.replaceRegionCoverage(tx, id, updated.points.map((point) => ({
+        order: point.order, type: point.type as RoutePointDto['type'], name: point.name,
+        latitude: Number(point.latitude), longitude: Number(point.longitude),
+        city_code: point.city_code ?? undefined, district_code: point.district_code ?? undefined,
+      })), updated.city_code ?? undefined, updated.district_code ?? undefined);
       await this.operationLogs.appendWithClient(tx, {
         ...actor,
         action: 'route.publish',
@@ -259,6 +306,15 @@ export class AdminRouteService {
     if (missing.length) {
       throw new AppException(53007, `发布字段不完整：${missing.join(', ')}`);
     }
+    for (const point of route.points) {
+      this.regions.assertPoint({
+        latitude: Number(point.latitude), longitude: Number(point.longitude),
+        province_code: point.province_code, city_code: point.city_code, district_code: point.district_code,
+      }, `路线点位 ${point.order + 1}`);
+    }
+    const start = route.points.find((point) => point.type === 'start')!;
+    if (route.city_code !== start.city_code || (route.district_code || null) !== (start.district_code || null))
+      throw new AppException(53007, '路线主地区与起点不一致，请编辑点位并保存后发布');
   }
 
   private validatePointOrder(points: RoutePointDto[], requireEndpoints: boolean): void {
@@ -308,7 +364,7 @@ export class AdminRouteService {
     if (count !== uniqueIds.length) throw new AppException(53007, '存在无效的关联约骑');
   }
 
-  private routeData(dto: UpdateRouteDto): Record<string, unknown> {
+  private routeData(dto: UpdateRouteDto, polylineProvider?: string): Record<string, unknown> {
     const fields = { ...dto } as Record<string, unknown>;
     const { images, polyline, distance_km: distanceKm } = dto;
     delete fields.points;
@@ -316,10 +372,21 @@ export class AdminRouteService {
     delete fields.images;
     delete fields.polyline;
     delete fields.distance_km;
+    delete fields.external_route_url;
+    const externalLink =
+      dto.external_route_url !== undefined ? normalizeExternalRouteUrl(dto.external_route_url) : {};
     return {
       ...fields,
+      ...externalLink,
       ...(images !== undefined ? { images: images as Prisma.InputJsonValue } : {}),
       ...(polyline !== undefined ? { polyline: polyline as unknown as Prisma.InputJsonValue } : {}),
+      ...(polyline !== undefined
+        ? {
+            polyline_status: polyline.length >= 2 ? 1 : 0,
+            polyline_provider: polyline.length >= 2 ? (polylineProvider ?? 'manual') : null,
+            polyline_updated_at: polyline.length >= 2 ? new Date() : null,
+          }
+        : {}),
       ...(distanceKm !== undefined ? { distance_km: new Prisma.Decimal(distanceKm) } : {}),
     };
   }
@@ -333,7 +400,76 @@ export class AdminRouteService {
       longitude: new Prisma.Decimal(point.longitude),
       type: point.type,
       description: point.description,
+      address: point.address,
+      province_code: point.province_code ?? '650000',
+      city_code: point.city_code,
+      district_code: point.district_code,
     }));
+  }
+
+  private async prepareMapData<T extends CreateRouteDto | UpdateRouteDto>(dto: T) {
+    if (!dto.points?.length) {
+      if (dto.city_code) this.regions.assertSupported(dto.city_code, dto.district_code, '路线所属地区');
+      return { dto, provider: undefined };
+    }
+    const points = dto.points.map((point) => ({
+      ...point,
+      ...(point.type === 'start'
+        ? {
+            province_code: point.province_code ?? (dto.city_code ? '650000' : undefined),
+            city_code: point.city_code ?? dto.city_code,
+            district_code: point.district_code ?? (point.city_code === undefined ? dto.district_code : undefined),
+          }
+        : {}),
+    }));
+    for (const [index, point] of points.entries())
+      this.regions.assertPoint(point, `路线点位 ${index + 1}`);
+    const planned = this.maps ? await this.maps.planDrivingRoute(points) : null;
+    const start = points.find((point) => point.type === 'start');
+    return {
+      dto: { ...dto, points,
+        ...(start ? { city_code: start.city_code, district_code: start.district_code ?? '', city_name: this.regions?.city(start.city_code ?? '')?.name } : {}),
+        ...(planned ? { polyline: planned } : {}) } as T,
+      provider: planned ? 'tencent-driving' : undefined,
+    };
+  }
+
+  private async replaceRegionCoverage(
+    tx: Prisma.TransactionClient,
+    routeId: bigint,
+    points: RoutePointDto[],
+    fallbackCity?: string,
+    fallbackDistrict?: string,
+  ) {
+    await tx.routeRegion.deleteMany({ where: { route_id: routeId } });
+    const regions = new Map<string, Prisma.RouteRegionCreateManyInput>();
+    for (const point of points) {
+      const city = point.city_code ?? (point.type === 'start' ? fallbackCity : undefined);
+      if (!city) continue;
+      const district =
+        point.district_code ?? (point.type === 'start' ? fallbackDistrict : undefined) ?? '';
+      const key = `${city}:${district}`;
+      const current = regions.get(key);
+      regions.set(key, {
+        route_id: routeId,
+        city_code: city,
+        district_code: district,
+        has_start: Boolean(current?.has_start || point.type === 'start'),
+        has_waypoint: Boolean(current?.has_waypoint || point.type !== 'start'),
+        point_count: (current?.point_count ?? 0) + 1,
+      });
+    }
+    if (!regions.size && fallbackCity) {
+      regions.set(`${fallbackCity}:${fallbackDistrict ?? ''}`, {
+        route_id: routeId,
+        city_code: fallbackCity,
+        district_code: fallbackDistrict ?? '',
+        has_start: true,
+        has_waypoint: false,
+        point_count: 1,
+      });
+    }
+    if (regions.size) await tx.routeRegion.createMany({ data: [...regions.values()] });
   }
 
   private serialize(route: AdminRouteRecord) {
@@ -344,12 +480,19 @@ export class AdminRouteService {
       cover_image: route.cover_image,
       images: this.stringArray(route.images),
       city_code: route.city_code,
+      district_code: route.district_code,
       city_name: route.city_name,
       type: route.type,
       difficulty: route.difficulty,
       distance_km: route.distance_km?.toString() ?? null,
       duration_min: route.duration_min,
       polyline: this.polyline(route.polyline),
+      polyline_status: route.polyline_status,
+      polyline_provider: route.polyline_provider,
+      polyline_updated_at: route.polyline_updated_at?.toISOString() ?? null,
+      external_route_url: route.external_route_url,
+      external_route_provider: route.external_route_provider,
+      external_url_status: route.external_url_status,
       road_condition: route.road_condition,
       suitable_motorcycles: route.suitable_motorcycles,
       best_season: route.best_season,
@@ -371,6 +514,10 @@ export class AdminRouteService {
         longitude: point.longitude.toString(),
         type: point.type,
         description: point.description,
+        address: point.address,
+        province_code: point.province_code,
+        city_code: point.city_code,
+        district_code: point.district_code,
       })),
       related_ride_ids: route.ride_links.map((link) => link.ride_id.toString()),
     };

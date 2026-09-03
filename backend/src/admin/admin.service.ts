@@ -169,6 +169,28 @@ export class AdminService {
     });
     if (!user) throw new AppException(8001, '用户不存在', HttpStatus.NOT_FOUND);
     const rideCount = await this.prisma.ride.count({ where: { user_id: id, deleted_at: null } });
+    const profile = user.profile
+      ? {
+          motorcycle_model: user.profile.motorcycle_model,
+          riding_years: user.profile.riding_years,
+          riding_styles: user.profile.riding_styles,
+          province: user.profile.province,
+          city: user.profile.city,
+          district: user.profile.district,
+          city_code: user.profile.city_code,
+          location_lat: user.profile.location_lat?.toString() ?? null,
+          location_lng: user.profile.location_lng?.toString() ?? null,
+          location_offset_seed: user.profile.location_offset_seed,
+          location_visible: user.profile.location_visible,
+          bio: user.profile.bio,
+          wechat_id: user.profile.wechat_id,
+          wechat_id_normalized: user.profile.wechat_id_normalized,
+          wechat_visible: user.profile.wechat_visible,
+          created_at: user.profile.created_at,
+          updated_at: user.profile.updated_at,
+          deleted_at: user.profile.deleted_at,
+        }
+      : null;
     return {
       id: user.id.toString(),
       openid: user.openid,
@@ -180,7 +202,7 @@ export class AdminService {
       status: user.status,
       role: user.role,
       last_login_at: user.last_login_at,
-      profile: user.profile,
+      profile,
       statistics: { ride_count: rideCount },
     };
   }

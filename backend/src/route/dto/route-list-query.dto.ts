@@ -9,6 +9,15 @@ export class RouteListQueryDto {
   city_code?: string;
 
   @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  district_code?: string;
+
+  @IsOptional()
+  @IsIn(['any', 'start', 'through'])
+  region_scope?: 'any' | 'start' | 'through' = 'any';
+
+  @IsOptional()
   @IsIn(ROUTE_TYPES)
   type?: (typeof ROUTE_TYPES)[number];
 

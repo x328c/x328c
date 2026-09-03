@@ -68,6 +68,7 @@ model UserProfile {
   location_visible     Int       @default(2) @db.TinyInt
   bio                  String?   @db.VarChar(200)
   wechat_id            String?   @db.VarChar(50)
+  wechat_id_normalized String?   @db.VarChar(50)
   wechat_visible       Int       @default(1) @db.TinyInt
   created_at           DateTime  @default(now()) @db.DateTime(0)
   updated_at           DateTime  @updatedAt @db.DateTime(0)
@@ -75,42 +76,75 @@ model UserProfile {
   user                 User      @relation(fields: [user_id], references: [id])
 
   @@index([city_code])
+  @@index([wechat_id_normalized])
   @@map("user_profiles")
 }
 
 model Ride {
-  id               BigInt            @id @default(autoincrement())
-  user_id          BigInt
-  title            String            @db.VarChar(50)
-  ride_style       Int               @db.TinyInt
-  departure_time   DateTime          @db.DateTime(0)
-  meetup_address   String            @db.VarChar(200)
-  meetup_lat       Decimal           @db.Decimal(10, 7)
-  meetup_lng       Decimal           @db.Decimal(10, 7)
-  destination      String?           @db.VarChar(200)
-  min_people       Int               @db.TinyInt
-  max_people       Int               @db.TinyInt
-  speed_level      Int               @db.TinyInt
-  bike_requirement String?           @db.VarChar(100)
-  description      String?           @db.Text
-  rules            Json?
-  status           Int               @default(1) @db.TinyInt
-  audit_status     Int               @default(1) @db.TinyInt
-  view_count       Int               @default(0)
-  join_count       Int               @default(0)
-  city_code        String            @db.VarChar(20)
-  created_at       DateTime          @default(now()) @db.DateTime(0)
-  updated_at       DateTime          @updatedAt @db.DateTime(0)
-  deleted_at       DateTime?         @db.DateTime(0)
-  user             User              @relation(fields: [user_id], references: [id])
-  participants     RideParticipant[]
-  reports          Report[]          @relation("reported_ride")
-  route_links      RouteRideLink[]
+  id                        BigInt            @id @default(autoincrement())
+  user_id                   BigInt
+  title                     String            @db.VarChar(50)
+  ride_style                Int               @db.TinyInt
+  departure_time            DateTime          @db.DateTime(0)
+  meetup_address            String            @db.VarChar(200)
+  meetup_lat                Decimal           @db.Decimal(10, 7)
+  meetup_lng                Decimal           @db.Decimal(10, 7)
+  destination               String?           @db.VarChar(200)
+  destination_lat           Decimal?          @db.Decimal(10, 7)
+  destination_lng           Decimal?          @db.Decimal(10, 7)
+  destination_city_code     String?           @db.VarChar(20)
+  destination_district_code String?           @db.VarChar(20)
+  min_people                Int               @db.TinyInt
+  max_people                Int               @db.TinyInt
+  speed_level               Int               @db.TinyInt
+  bike_requirement          String?           @db.VarChar(100)
+  description               String?           @db.Text
+  rules                     Json?
+  status                    Int               @default(1) @db.TinyInt
+  audit_status              Int               @default(1) @db.TinyInt
+  view_count                Int               @default(0)
+  join_count                Int               @default(0)
+  city_code                 String            @db.VarChar(20)
+  district_code             String?           @db.VarChar(20)
+  route_snapshot            Json?
+  route_snapshot_version    Int?
+  created_at                DateTime          @default(now()) @db.DateTime(0)
+  updated_at                DateTime          @updatedAt @db.DateTime(0)
+  deleted_at                DateTime?         @db.DateTime(0)
+  user                      User              @relation(fields: [user_id], references: [id])
+  participants              RideParticipant[]
+  reports                   Report[]          @relation("reported_ride")
+  route_links               RouteRideLink[]
+  points                    RidePoint[]
 
   @@index([user_id])
   @@index([departure_time])
   @@index([city_code, status, departure_time])
+  @@index([city_code, district_code, status, departure_time], map: "rides_v23_region_departure_idx")
   @@map("rides")
+}
+
+model RidePoint {
+  id            BigInt   @id @default(autoincrement())
+  ride_id       BigInt
+  order         Int
+  type          String   @db.VarChar(16)
+  name          String   @db.VarChar(80)
+  address       String?  @db.VarChar(300)
+  latitude      Decimal  @db.Decimal(10, 7)
+  longitude     Decimal  @db.Decimal(10, 7)
+  province_code String?  @db.VarChar(20)
+  city_code     String?  @db.VarChar(20)
+  district_code String?  @db.VarChar(20)
+  source        String   @default("manual") @db.VarChar(32)
+  created_at    DateTime @default(now()) @db.DateTime(0)
+  updated_at    DateTime @updatedAt @db.DateTime(0)
+  ride          Ride     @relation(fields: [ride_id], references: [id], onDelete: Cascade)
+
+  @@unique([ride_id, order])
+  @@index([ride_id, type])
+  @@index([city_code, district_code, ride_id])
+  @@map("ride_points")
 }
 
 model RideParticipant {
@@ -281,41 +315,50 @@ model OperationLog {
 }
 
 model Route {
-  id                   BigInt              @id @default(autoincrement())
-  title                String              @db.VarChar(80)
-  summary              String?             @db.VarChar(300)
-  cover_image          String?             @db.VarChar(500)
-  images               Json?
-  city_code            String?             @db.VarChar(20)
-  city_name            String?             @db.VarChar(50)
-  type                 String?             @db.VarChar(32)
-  difficulty           String?             @db.VarChar(20)
-  distance_km          Decimal?            @db.Decimal(8, 2)
-  duration_min         Int?
-  polyline             Json?
-  road_condition       String?             @db.VarChar(500)
-  suitable_motorcycles String?             @db.VarChar(200)
-  best_season          String?             @db.VarChar(100)
-  safety_notice        String?             @db.VarChar(1000)
-  status               Int                 @default(0) @db.TinyInt
-  sort_weight          Int                 @default(0)
-  maintainer_id        BigInt
-  favorite_count       Int                 @default(0)
-  published_at         DateTime?           @db.DateTime(0)
-  offlined_at          DateTime?           @db.DateTime(0)
-  offline_reason       String?             @db.VarChar(500)
-  created_at           DateTime            @default(now()) @db.DateTime(0)
-  updated_at           DateTime            @updatedAt @db.DateTime(0)
-  deleted_at           DateTime?           @db.DateTime(0)
-  maintainer           AdminUser           @relation(fields: [maintainer_id], references: [id])
-  points               RoutePoint[]
-  favorites            RouteFavorite[]
-  ride_links           RouteRideLink[]
-  activity_links       RouteActivityLink[]
-  comments             RouteComment[]
+  id                      BigInt              @id @default(autoincrement())
+  title                   String              @db.VarChar(80)
+  summary                 String?             @db.VarChar(300)
+  cover_image             String?             @db.VarChar(500)
+  images                  Json?
+  city_code               String?             @db.VarChar(20)
+  district_code           String?             @db.VarChar(20)
+  city_name               String?             @db.VarChar(50)
+  type                    String?             @db.VarChar(32)
+  difficulty              String?             @db.VarChar(20)
+  distance_km             Decimal?            @db.Decimal(8, 2)
+  duration_min            Int?
+  polyline                Json?
+  polyline_status         Int                 @default(0) @db.TinyInt
+  polyline_provider       String?             @db.VarChar(32)
+  polyline_updated_at     DateTime?           @db.DateTime(0)
+  external_route_url      String?             @db.VarChar(1000)
+  external_route_provider String?             @db.VarChar(32)
+  external_url_status     Int                 @default(0) @db.TinyInt
+  road_condition          String?             @db.VarChar(500)
+  suitable_motorcycles    String?             @db.VarChar(200)
+  best_season             String?             @db.VarChar(100)
+  safety_notice           String?             @db.VarChar(1000)
+  status                  Int                 @default(0) @db.TinyInt
+  sort_weight             Int                 @default(0)
+  maintainer_id           BigInt
+  favorite_count          Int                 @default(0)
+  published_at            DateTime?           @db.DateTime(0)
+  offlined_at             DateTime?           @db.DateTime(0)
+  offline_reason          String?             @db.VarChar(500)
+  created_at              DateTime            @default(now()) @db.DateTime(0)
+  updated_at              DateTime            @updatedAt @db.DateTime(0)
+  deleted_at              DateTime?           @db.DateTime(0)
+  maintainer              AdminUser           @relation(fields: [maintainer_id], references: [id])
+  points                  RoutePoint[]
+  favorites               RouteFavorite[]
+  ride_links              RouteRideLink[]
+  activity_links          RouteActivityLink[]
+  comments                RouteComment[]
+  regions                 RouteRegion[]
 
   @@index([status, sort_weight, updated_at, id])
   @@index([status, city_code, sort_weight, updated_at, id])
+  @@index([status, city_code, district_code, sort_weight, updated_at, id], map: "routes_v23_region_sort_idx")
   @@index([status, type, difficulty, sort_weight, updated_at, id])
   @@index([maintainer_id, status, updated_at])
   @@index([deleted_at])
@@ -323,21 +366,43 @@ model Route {
 }
 
 model RoutePoint {
-  id          BigInt   @id @default(autoincrement())
-  route_id    BigInt
-  order       Int
-  name        String   @db.VarChar(80)
-  latitude    Decimal  @db.Decimal(10, 7)
-  longitude   Decimal  @db.Decimal(10, 7)
-  type        String   @db.VarChar(16)
-  description String?  @db.VarChar(300)
-  created_at  DateTime @default(now()) @db.DateTime(0)
-  updated_at  DateTime @updatedAt @db.DateTime(0)
-  route       Route    @relation(fields: [route_id], references: [id], onDelete: Cascade)
+  id            BigInt   @id @default(autoincrement())
+  route_id      BigInt
+  order         Int
+  name          String   @db.VarChar(80)
+  latitude      Decimal  @db.Decimal(10, 7)
+  longitude     Decimal  @db.Decimal(10, 7)
+  type          String   @db.VarChar(16)
+  description   String?  @db.VarChar(300)
+  address       String?  @db.VarChar(300)
+  province_code String?  @db.VarChar(20)
+  city_code     String?  @db.VarChar(20)
+  district_code String?  @db.VarChar(20)
+  created_at    DateTime @default(now()) @db.DateTime(0)
+  updated_at    DateTime @updatedAt @db.DateTime(0)
+  route         Route    @relation(fields: [route_id], references: [id], onDelete: Cascade)
 
   @@unique([route_id, order])
   @@index([route_id, type])
+  @@index([city_code, district_code, route_id], map: "route_points_v23_region_idx")
   @@map("route_points")
+}
+
+model RouteRegion {
+  id            BigInt   @id @default(autoincrement())
+  route_id      BigInt
+  city_code     String   @db.VarChar(20)
+  district_code String   @default("") @db.VarChar(20)
+  has_start     Boolean  @default(false)
+  has_waypoint  Boolean  @default(false)
+  point_count   Int      @default(1)
+  created_at    DateTime @default(now()) @db.DateTime(0)
+  updated_at    DateTime @updatedAt @db.DateTime(0)
+  route         Route    @relation(fields: [route_id], references: [id], onDelete: Cascade)
+
+  @@unique([route_id, city_code, district_code])
+  @@index([city_code, district_code, route_id])
+  @@map("route_regions")
 }
 
 model RouteFavorite {
@@ -354,36 +419,92 @@ model RouteFavorite {
 }
 
 model UserRoute {
-  id             BigInt              @id @default(autoincrement())
-  user_id        BigInt
-  title          String              @db.VarChar(100)
-  description    String?             @db.Text
-  start_location String              @db.VarChar(200)
-  start_lat      Decimal             @db.Decimal(10, 7)
-  start_lng      Decimal             @db.Decimal(10, 7)
-  end_location   String?             @db.VarChar(200)
-  end_lat        Decimal?            @db.Decimal(10, 7)
-  end_lng        Decimal?            @db.Decimal(10, 7)
-  waypoints      Json?
-  total_distance Int?
-  estimated_time Int?
-  difficulty     Int?                @db.TinyInt
-  images         Json?
-  visibility     Int                 @default(1) @db.TinyInt
-  view_count     Int                 @default(0)
-  favorite_count Int                 @default(0)
-  status         Int                 @default(1) @db.TinyInt
-  created_at     DateTime            @default(now()) @db.DateTime(0)
-  updated_at     DateTime            @updatedAt @db.DateTime(0)
-  user           User                @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  favorites      UserRouteFavorite[]
-  comments       RouteComment[]
-  ride_links     RouteRideLink[]
+  id                      BigInt              @id @default(autoincrement())
+  user_id                 BigInt
+  title                   String              @db.VarChar(100)
+  description             String?             @db.Text
+  start_location          String              @db.VarChar(200)
+  start_lat               Decimal             @db.Decimal(10, 7)
+  start_lng               Decimal             @db.Decimal(10, 7)
+  end_location            String?             @db.VarChar(200)
+  end_lat                 Decimal?            @db.Decimal(10, 7)
+  end_lng                 Decimal?            @db.Decimal(10, 7)
+  waypoints               Json?
+  city_code               String?             @db.VarChar(20)
+  district_code           String?             @db.VarChar(20)
+  polyline                Json?
+  polyline_status         Int                 @default(0) @db.TinyInt
+  polyline_provider       String?             @db.VarChar(32)
+  polyline_updated_at     DateTime?           @db.DateTime(0)
+  external_route_url      String?             @db.VarChar(1000)
+  external_route_provider String?             @db.VarChar(32)
+  external_url_status     Int                 @default(0) @db.TinyInt
+  route_data_version      Int                 @default(2)
+  total_distance          Int?
+  estimated_time          Int?
+  difficulty              Int?                @db.TinyInt
+  images                  Json?
+  visibility              Int                 @default(1) @db.TinyInt
+  view_count              Int                 @default(0)
+  favorite_count          Int                 @default(0)
+  status                  Int                 @default(1) @db.TinyInt
+  offlined_at             DateTime?           @db.DateTime(0)
+  offline_reason          String?             @db.VarChar(500)
+  offlined_by             BigInt?
+  created_at              DateTime            @default(now()) @db.DateTime(0)
+  updated_at              DateTime            @updatedAt @db.DateTime(0)
+  user                    User                @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  favorites               UserRouteFavorite[]
+  comments                RouteComment[]
+  ride_links              RouteRideLink[]
+  points                  UserRoutePoint[]
+  regions                 UserRouteRegion[]
 
   @@index([user_id, status, created_at, id])
   @@index([visibility, status, created_at, id])
+  @@index([visibility, status, city_code, district_code, created_at, id], map: "user_routes_v23_region_created_idx")
   @@index([visibility, status, difficulty, total_distance, created_at, id], map: "user_routes_public_filter_idx")
+  @@index([status, offlined_at, id], map: "user_routes_admin_status_idx")
   @@map("user_routes")
+}
+
+model UserRoutePoint {
+  id            BigInt    @id @default(autoincrement())
+  user_route_id BigInt
+  order         Int
+  type          String    @db.VarChar(16)
+  name          String    @db.VarChar(80)
+  address       String?   @db.VarChar(300)
+  latitude      Decimal   @db.Decimal(10, 7)
+  longitude     Decimal   @db.Decimal(10, 7)
+  province_code String?   @db.VarChar(20)
+  city_code     String?   @db.VarChar(20)
+  district_code String?   @db.VarChar(20)
+  created_at    DateTime  @default(now()) @db.DateTime(0)
+  updated_at    DateTime  @updatedAt @db.DateTime(0)
+  user_route    UserRoute @relation(fields: [user_route_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_route_id, order])
+  @@index([user_route_id, type])
+  @@index([city_code, district_code, user_route_id])
+  @@map("user_route_points")
+}
+
+model UserRouteRegion {
+  id            BigInt    @id @default(autoincrement())
+  user_route_id BigInt
+  city_code     String    @db.VarChar(20)
+  district_code String    @default("") @db.VarChar(20)
+  has_start     Boolean   @default(false)
+  has_waypoint  Boolean   @default(false)
+  point_count   Int       @default(1)
+  created_at    DateTime  @default(now()) @db.DateTime(0)
+  updated_at    DateTime  @updatedAt @db.DateTime(0)
+  user_route    UserRoute @relation(fields: [user_route_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_route_id, city_code, district_code])
+  @@index([city_code, district_code, user_route_id])
+  @@map("user_route_regions")
 }
 
 model UserRouteFavorite {

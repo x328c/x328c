@@ -53,6 +53,43 @@ describe('RideService creator transfer', () => {
   });
 });
 
+describe('RideService manual finish', () => {
+  const ride = {
+    findFirst: jest.fn(),
+    updateMany: jest.fn(),
+  };
+  const prisma = { ride } as unknown as PrismaService;
+  const redis = { geoRemove: jest.fn() };
+  const service = new RideService(prisma, redis as never, {} as never, {} as never, {} as never);
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    ride.findFirst.mockResolvedValue({ id: 11n, user_id: 1n, status: 3, city_code: '650100' });
+    ride.updateMany.mockResolvedValue({ count: 1 });
+    redis.geoRemove.mockResolvedValue(undefined);
+  });
+
+  it('allows the creator to finish a running ride', async () => {
+    await expect(service.finish(1n, 11n)).resolves.toEqual({ success: true });
+    expect(ride.updateMany).toHaveBeenCalledWith({
+      where: { id: 11n, user_id: 1n, status: 3, deleted_at: null },
+      data: { status: 4 },
+    });
+    expect(redis.geoRemove).toHaveBeenCalledWith('geo:rides:650100', '11');
+  });
+
+  it('rejects a non-creator', async () => {
+    await expect(service.finish(2n, 11n)).rejects.toMatchObject({ status: 403 });
+    expect(ride.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('rejects a ride that is not running', async () => {
+    ride.findFirst.mockResolvedValue({ id: 11n, user_id: 1n, status: 2, city_code: '650100' });
+    await expect(service.finish(1n, 11n)).rejects.toMatchObject({ status: 400 });
+    expect(ride.updateMany).not.toHaveBeenCalled();
+  });
+});
+
 describe('RideService location list', () => {
   const record = (
     id: bigint,
@@ -86,17 +123,16 @@ describe('RideService location list', () => {
       route_links: [],
     }) as never;
 
-  it('filters by meetup distance, sorts nearest first, then paginates', async () => {
+  it('hydrates only the IDs on the SQL-ranked distance page', async () => {
     const prisma = {
       ride: {
-        findMany: jest
-          .fn()
-          .mockResolvedValue([
-            record(3n, 44.02, 87.61, '2026-08-22T10:00:00Z'),
-            record(2n, 43.85, 87.61, '2026-08-22T09:00:00Z'),
-            record(1n, 43.83, 87.61, '2026-08-22T11:00:00Z'),
-          ]),
+        findMany: jest.fn().mockResolvedValue([record(2n, 43.85, 87.61, '2026-08-22T09:00:00Z')]),
       },
+      $queryRaw: jest
+        .fn()
+        .mockResolvedValueOnce([{ total: 2n }])
+        .mockResolvedValueOnce([{ id: 2n, distance_km: 3.34 }]),
+      $transaction: jest.fn(async (callback: (client: unknown) => unknown) => callback(prisma)),
     } as unknown as PrismaService;
     const service = new RideService(prisma, {} as never, {} as never, {} as never, {} as never);
 
@@ -113,7 +149,7 @@ describe('RideService location list', () => {
     expect(result.list[0]).toMatchObject({ id: '2' });
     expect(result.pagination).toEqual({ page: 2, pageSize: 1, total: 2 });
     expect(prisma.ride.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ orderBy: [{ created_at: 'desc' }, { id: 'desc' }] }),
+      expect.objectContaining({ where: { id: { in: [2n] } }, take: 1 }),
     );
   });
 
@@ -128,7 +164,14 @@ describe('RideService location list', () => {
           ]),
         count: jest.fn().mockResolvedValue(2),
       },
-      $transaction: jest.fn(async (operations: Array<Promise<unknown>>) => Promise.all(operations)),
+      $queryRaw: jest
+        .fn()
+        .mockResolvedValueOnce([{ total: 2n }])
+        .mockResolvedValueOnce([
+          { id: 3n, distance_km: null },
+          { id: 2n, distance_km: null },
+        ]),
+      $transaction: jest.fn(async (callback: (client: unknown) => unknown) => callback(prisma)),
     } as unknown as PrismaService;
     const service = new RideService(prisma, {} as never, {} as never, {} as never, {} as never);
 
@@ -136,7 +179,7 @@ describe('RideService location list', () => {
 
     expect(result.list.map((item) => item.id)).toEqual(['3', '2']);
     expect(prisma.ride.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ orderBy: [{ created_at: 'desc' }, { id: 'desc' }] }),
+      expect.objectContaining({ where: { id: { in: [3n, 2n] } }, take: 20 }),
     );
   });
 
@@ -149,4 +192,62 @@ describe('RideService location list', () => {
     );
     expect(prisma.ride.findMany).not.toHaveBeenCalled();
   });
+
+  it.each([0, 1, 2, 3, 4, 5])(
+    'paginates %i local meetups before newer through-city rides without loading all records',
+    async (startCount) => {
+      const starts = Array.from({ length: startCount }, (_, i) => ({
+        ...(record(BigInt(20 - i), 43.83, 87.61, '2026-09-04T10:00:00Z') as object),
+        points: [],
+      }));
+      const through = [100n, 99n, 98n].map((id) => ({
+        ...(record(id, 44, 87, '2026-09-04T10:00:00Z') as object),
+        city_code: '652300',
+        points: [
+          {
+            id,
+            city_code: '650100',
+            latitude: new Prisma.Decimal(43.83),
+            longitude: new Prisma.Decimal(87.61),
+          },
+        ],
+      }));
+      const all = [...starts, ...through] as unknown as Array<{ id: bigint }>;
+      const ride = {
+        findMany: jest.fn(async ({ where, take }) =>
+          all.filter((row) => where.id.in.includes(row.id)).slice(0, take),
+        ),
+      };
+      const prisma = {
+        ride,
+        $queryRaw: jest.fn(async (query: Prisma.Sql) => {
+          if (query.sql.includes('COUNT(*)')) return [{ total: BigInt(all.length) }];
+          const [take, skip] = query.values.slice(-2).map(Number);
+          return all.slice(skip, skip + take).map(({ id }) => ({ id, distance_km: null }));
+        }),
+        $transaction: jest.fn(async (callback: (client: unknown) => unknown) => callback(prisma)),
+      } as unknown as PrismaService;
+      const service = new RideService(prisma, {} as never, {} as never, {} as never, {} as never);
+      const ids: string[] = [];
+      for (let page = 1; page <= Math.ceil((startCount + through.length) / 2) + 1; page++) {
+        const result = await service.list({ city_code: '650100', page, pageSize: 2 });
+        expect(result.pagination.total).toBe(startCount + 3);
+        ids.push(...result.list.map((item) => item.id));
+      }
+      expect(ids).toEqual([
+        ...Array.from({ length: startCount }, (_, i) => String(20 - i)),
+        '100',
+        '99',
+        '98',
+      ]);
+      expect(
+        ride.findMany.mock.calls.every(
+          ([args]) => args.take > 0 && args.take <= 2 && args.where.id.in.length <= 2,
+        ),
+      ).toBe(true);
+      expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+        isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+      });
+    },
+  );
 });

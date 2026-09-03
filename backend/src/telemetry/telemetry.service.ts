@@ -4,6 +4,7 @@ import { AppException } from '../common/exceptions/app.exception';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { RateLimitService } from '../common/resilience/rate-limit.service';
 import { TrackTelemetryEventDto } from './dto/telemetry.dto';
+import { isRegionEvent, sanitizeRegionProperties } from './region-telemetry';
 
 const MAX_PROPERTIES = 20;
 const SAFE_KEY = /^[a-z][a-z0-9_]{0,63}$/;
@@ -35,7 +36,7 @@ export class TelemetryService {
     if (entries.length > MAX_PROPERTIES || entries.some(([key]) => !SAFE_KEY.test(key))) {
       throw new AppException(40001, '埋点属性不符合规范', HttpStatus.BAD_REQUEST);
     }
-    const properties = Object.fromEntries(
+    const properties = isRegionEvent(dto.name) ? sanitizeRegionProperties(dto.name, dto.properties) : Object.fromEntries(
       entries.filter(
         ([, value]) =>
           typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean',
@@ -46,7 +47,7 @@ export class TelemetryService {
         data: {
           event_id: dto.event_id,
           name: dto.name,
-          user_id: userId,
+          user_id: isRegionEvent(dto.name) ? undefined : userId,
           properties,
           occurred_at: occurredAt,
         },

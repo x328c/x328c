@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable, Optional } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
 import { PrismaService } from '../common/prisma/prisma.service';
@@ -7,6 +7,8 @@ import { FeatureFlagService } from '../common/feature-flag/feature-flag.service'
 import { SafetyAgreementService } from '../safety/safety-agreement.service';
 import { OptionalAgreementDto } from '../safety/dto/agreement.dto';
 import { UserService } from '../user/user.service';
+import { RegionService } from '../region/region.service';
+import { rideDistanceQueries } from './ride-distance-query';
 import {
   CreateRideDto,
   MyRideQueryDto,
@@ -25,6 +27,7 @@ const rideInclude = {
     orderBy: [{ is_creator: 'desc' }, { joined_at: 'asc' }],
     include: { user: true },
   },
+  points: { orderBy: { order: 'asc' as const } },
   route_links: {
     take: 1,
     include: {
@@ -38,7 +41,21 @@ const rideInclude = {
           distance_km: true,
           status: true,
           deleted_at: true,
-          points: { orderBy: { order: 'asc' as const }, select: { name: true, type: true } },
+          polyline: true,
+          external_route_url: true,
+          points: {
+            orderBy: { order: 'asc' as const },
+            select: {
+              name: true,
+              address: true,
+              latitude: true,
+              longitude: true,
+              type: true,
+              province_code: true,
+              city_code: true,
+              district_code: true,
+            },
+          },
         },
       },
       user_route: {
@@ -52,12 +69,51 @@ const rideInclude = {
           total_distance: true,
           visibility: true,
           status: true,
+          city_code: true,
+          district_code: true,
+          start_lat: true,
+          start_lng: true,
+          end_lat: true,
+          end_lng: true,
+          waypoints: true,
+          polyline: true,
+          external_route_url: true,
         },
       },
     },
   },
 } satisfies Prisma.RideInclude;
 type RideRecord = Prisma.RideGetPayload<{ include: typeof rideInclude }>;
+
+interface RidePointInput {
+  type: 'waypoint' | 'destination';
+  name: string;
+  address?: string | null;
+  latitude: number;
+  longitude: number;
+  province_code?: string | null;
+  city_code?: string | null;
+  district_code?: string | null;
+  source: string;
+}
+
+interface RideRoutePlan {
+  type: 'official' | 'user';
+  id: bigint;
+  title: string;
+  start: {
+    name: string;
+    latitude: number;
+    longitude: number;
+    province_code?: string | null;
+    city_code?: string | null;
+    district_code?: string | null;
+  };
+  points: RidePointInput[];
+  polyline: Array<{ latitude: number; longitude: number }>;
+  external_route_url: string | null;
+  snapshot: Prisma.InputJsonObject;
+}
 
 @Injectable()
 export class RideService {
@@ -67,6 +123,7 @@ export class RideService {
     private readonly flags: FeatureFlagService,
     private readonly safetyAgreements: SafetyAgreementService,
     private readonly users: UserService,
+    @Optional() private readonly regions?: RegionService,
   ) {}
 
   async list(query: RideQueryDto) {
@@ -75,7 +132,7 @@ export class RideService {
     const where: Prisma.RideWhereInput = {
       status: { in: ACTIVE_STATUSES },
       deleted_at: null,
-      ...(query.city_code ? { city_code: query.city_code } : {}),
+      ...this.rideRegionWhere(query),
       ...(query.ride_style ? { ride_style: query.ride_style } : {}),
       ...(query.start_time || query.end_time
         ? {
@@ -90,35 +147,44 @@ export class RideService {
     if (query.radius !== undefined && !hasLocation) {
       throw new AppException(1001, '距离筛选需要提供当前位置');
     }
-    if (hasLocation) {
-      const items = await this.prisma.ride.findMany({
-        where,
-        include: rideInclude,
-        orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
-      });
-      const sorted = items
-        .map((ride) => ({
-          record: ride,
-          value: this.serializeRide(ride, query.latitude, query.longitude),
-        }))
-        .filter(
-          ({ value }) =>
-            query.radius === undefined ||
-            (value.distance !== null && value.distance <= query.radius),
-        )
-        .sort(
-          (left, right) =>
-            (left.value.distance ?? Number.POSITIVE_INFINITY) -
-              (right.value.distance ?? Number.POSITIVE_INFINITY) ||
-            right.record.created_at.getTime() - left.record.created_at.getTime() ||
-            (right.record.id > left.record.id ? 1 : right.record.id < left.record.id ? -1 : 0),
-        );
-      const total = sorted.length;
-      const start = (page - 1) * pageSize;
-      return {
-        list: sorted.slice(start, start + pageSize).map(({ value }) => value),
-        pagination: { page, pageSize, total },
-      };
+    if (hasLocation || query.city_code) {
+      const queries = rideDistanceQueries(query);
+      return this.prisma.$transaction(
+        async (tx) => {
+          const counts = await tx.$queryRaw<Array<{ total: bigint }>>(queries.count);
+          const ranked = await tx.$queryRaw<Array<{ id: bigint; distance_km: number | null }>>(
+            queries.page,
+          );
+          const items = ranked.length
+            ? await tx.ride.findMany({
+                where: { id: { in: ranked.map((row) => row.id) } },
+                include: rideInclude,
+                take: pageSize,
+              })
+            : [];
+          const byId = new Map(items.map((ride) => [ride.id.toString(), ride]));
+          return {
+            list: ranked.flatMap((row) => {
+              const ride = byId.get(row.id.toString());
+              return ride
+                ? [
+                    {
+                      ...this.serializeRide(
+                        ride,
+                        undefined,
+                        undefined,
+                        row.distance_km === null ? null : Number(row.distance_km),
+                      ),
+                      region_match: this.rideRegionMatch(ride, query),
+                    },
+                  ]
+                : [];
+            }),
+            pagination: { page, pageSize, total: Number(counts[0]?.total ?? 0) },
+          };
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+      );
     }
 
     const [items, total] = await this.prisma.$transaction([
@@ -131,8 +197,22 @@ export class RideService {
       }),
       this.prisma.ride.count({ where }),
     ]);
+    const serialized = items
+      .map((ride) => ({
+        record: ride,
+        value: {
+          ...this.serializeRide(ride),
+          region_match: this.rideRegionMatch(ride, query),
+        },
+      }))
+      .sort(
+        (left, right) =>
+          this.regionRank(left.value.region_match) - this.regionRank(right.value.region_match) ||
+          right.record.created_at.getTime() - left.record.created_at.getTime() ||
+          (right.record.id > left.record.id ? 1 : right.record.id < left.record.id ? -1 : 0),
+      );
     return {
-      list: items.map((ride) => this.serializeRide(ride)),
+      list: serialized.map(({ value }) => value),
       pagination: { page, pageSize, total },
     };
   }
@@ -190,41 +270,117 @@ export class RideService {
   }
 
   async create(userId: bigint, dto: CreateRideDto, requestId = 'unknown', idempotencyKey?: string) {
+    await this.users.assertProfileComplete(userId);
     if (dto.min_people > dto.max_people) throw new AppException(1001, '最少人数不能大于最多人数');
     if (new Date(dto.departure_time) <= new Date())
       throw new AppException(1001, '出发时间必须晚于当前时间');
-    const { route_id, user_route_id, route_link_source, agreement, ...payload } = dto;
+    const {
+      route_id,
+      user_route_id,
+      route_link_source,
+      route_customized,
+      agreement,
+      waypoints,
+      destination_point,
+      district_code,
+      ...payload
+    } = dto;
+    if (route_customized || (!route_id && !user_route_id)) {
+      this.regions?.assertPoint(
+        {
+          latitude: dto.meetup_lat,
+          longitude: dto.meetup_lng,
+          city_code: dto.city_code,
+          district_code,
+        },
+        '集合地点',
+      );
+      for (const [index, point] of (waypoints ?? []).entries())
+        this.regions?.assertPoint(point, `途经点 ${index + 1}`);
+      if (destination_point) this.regions?.assertPoint(destination_point, '终点');
+    }
     if (route_id && user_route_id) throw new AppException(1001, '只能关联一条路线');
     const ride = await this.prisma.$transaction(async (tx) => {
       const route = route_id
-        ? {
-            type: 'official' as const,
-            item: await this.validateRouteLink(tx, BigInt(route_id), dto.city_code),
-          }
+        ? await this.validateRouteLink(tx, BigInt(route_id))
         : user_route_id
-          ? {
-              type: 'user' as const,
-              item: await this.validateUserRouteLink(tx, BigInt(user_route_id), userId),
-            }
+          ? await this.validateUserRouteLink(tx, BigInt(user_route_id), userId)
           : null;
+      const meetup = (!route_customized ? route?.start : undefined) ?? {
+        name: dto.meetup_address,
+        latitude: dto.meetup_lat,
+        longitude: dto.meetup_lng,
+        province_code: '650000',
+        city_code: dto.city_code,
+        district_code,
+      };
+      this.regions?.assertPoint(meetup, '集合地点');
+      const ridePoints =
+        (!route_customized ? route?.points : undefined) ??
+        this.manualRidePoints(waypoints, destination_point);
+      for (const [index, point] of ridePoints.entries())
+        this.regions?.assertPoint(point, `路线点位 ${index + 1}`);
+      const destinationPoint = [...ridePoints]
+        .reverse()
+        .find((point) => point.type === 'destination');
       const created = await tx.ride.create({
         data: {
           ...payload,
+          city_code: meetup.city_code!,
+          meetup_address: meetup.name,
+          destination: destinationPoint?.name ?? payload.destination,
+          district_code: meetup.district_code ?? null,
+          destination_lat: destinationPoint
+            ? new Prisma.Decimal(destinationPoint.latitude)
+            : undefined,
+          destination_lng: destinationPoint
+            ? new Prisma.Decimal(destinationPoint.longitude)
+            : undefined,
+          destination_city_code: destinationPoint?.city_code ?? null,
+          destination_district_code: destinationPoint?.district_code ?? null,
+          route_snapshot: route
+            ? {
+                ...route.snapshot,
+                customized: Boolean(route_customized),
+                start: meetup as unknown as Prisma.InputJsonObject,
+                points: ridePoints as unknown as Prisma.InputJsonArray,
+                ...(route_customized ? { polyline: [], external_route_url: null } : {}),
+              }
+            : undefined,
+          route_snapshot_version: route ? 1 : null,
           rules: dto.rules as Prisma.InputJsonValue | undefined,
           user_id: userId,
           departure_time: new Date(dto.departure_time),
-          meetup_lat: new Prisma.Decimal(dto.meetup_lat),
-          meetup_lng: new Prisma.Decimal(dto.meetup_lng),
+          meetup_lat: new Prisma.Decimal(meetup.latitude),
+          meetup_lng: new Prisma.Decimal(meetup.longitude),
           status: 1,
           join_count: 1,
           participants: { create: { user_id: userId, status: 1, is_creator: true } },
+          ...(ridePoints.length
+            ? {
+                points: {
+                  create: ridePoints.map((point, order) => ({
+                    order,
+                    type: point.type,
+                    name: point.name,
+                    address: point.address,
+                    latitude: new Prisma.Decimal(point.latitude),
+                    longitude: new Prisma.Decimal(point.longitude),
+                    province_code: point.province_code ?? '650000',
+                    city_code: point.city_code,
+                    district_code: point.district_code,
+                    source: point.source,
+                  })),
+                },
+              }
+            : {}),
           ...(route
             ? {
                 route_links: {
                   create: {
                     ...(route.type === 'official'
-                      ? { route_id: route.item.id }
-                      : { user_route_id: route.item.id }),
+                      ? { route_id: route.id }
+                      : { user_route_id: route.id }),
                     source: route_link_source ?? 'create_form',
                   },
                 },
@@ -265,12 +421,31 @@ export class RideService {
       throw new AppException(1001, '出发时间必须晚于当前时间');
     }
     const locationChanged =
-      dto.city_code !== undefined || dto.meetup_lat !== undefined || dto.meetup_lng !== undefined;
+      dto.city_code !== undefined ||
+      dto.district_code !== undefined ||
+      dto.meetup_lat !== undefined ||
+      dto.meetup_lng !== undefined;
+    const nextDistrict =
+      dto.district_code ??
+      (dto.city_code !== undefined && dto.city_code !== ride.city_code
+        ? undefined
+        : (ride.district_code ?? undefined));
+    if (locationChanged)
+      this.regions?.assertPoint(
+        {
+          latitude: dto.meetup_lat ?? Number(ride.meetup_lat),
+          longitude: dto.meetup_lng ?? Number(ride.meetup_lng),
+          city_code: dto.city_code ?? ride.city_code,
+          district_code: nextDistrict,
+        },
+        '集合地点',
+      );
     const updated = await this.prisma.$transaction(async (tx) => {
       const record = await tx.ride.update({
         where: { id: rideId },
         data: {
           ...dto,
+          ...(locationChanged ? { district_code: nextDistrict || null } : {}),
           rules: dto.rules as Prisma.InputJsonValue | undefined,
           ...(dto.departure_time ? { departure_time: new Date(dto.departure_time) } : {}),
           ...(dto.meetup_lat !== undefined
@@ -342,6 +517,25 @@ export class RideService {
     return { success: true };
   }
 
+  async finish(userId: bigint, rideId: bigint) {
+    const ride = await this.prisma.ride.findFirst({
+      where: { id: rideId, deleted_at: null },
+      select: { id: true, user_id: true, status: true, city_code: true },
+    });
+    if (!ride) throw new AppException(3001, '约骑不存在', HttpStatus.NOT_FOUND);
+    if (ride.user_id !== userId)
+      throw new AppException(3005, '只有发起人可以结束同行', HttpStatus.FORBIDDEN);
+    if (ride.status !== 3) throw new AppException(1001, '只有进行中的同行可以结束');
+
+    const updated = await this.prisma.ride.updateMany({
+      where: { id: rideId, user_id: userId, status: 3, deleted_at: null },
+      data: { status: 4 },
+    });
+    if (!updated.count) throw new AppException(1001, '同行状态已发生变化，请刷新后重试');
+    await this.redis.geoRemove(`geo:rides:${ride.city_code}`, rideId.toString());
+    return { success: true };
+  }
+
   async transferCreator(userId: bigint, rideId: bigint, targetUserId: bigint) {
     if (userId === targetUserId) throw new AppException(1001, '不能转让给自己');
     const result = await this.prisma.$transaction(
@@ -404,6 +598,7 @@ export class RideService {
     requestId = 'unknown',
     idempotencyKey?: string,
   ) {
+    await this.users.assertProfileComplete(userId);
     const result = await this.prisma.$transaction(
       async (tx) => {
         const ride = await tx.ride.findFirst({ where: { id: rideId, deleted_at: null } });
@@ -565,7 +760,7 @@ export class RideService {
       query.type === 'created'
         ? { user_id: userId, deleted_at: null }
         : {
-            participants: { some: { user_id: userId, status: 1, deleted_at: null } },
+            participants: { some: { user_id: userId, status: { in: [1, 2] }, deleted_at: null } },
             deleted_at: null,
           };
     const [items, total] = await this.prisma.$transaction([
@@ -581,6 +776,108 @@ export class RideService {
     return {
       list: items.map((ride) => this.serializeRide(ride)),
       pagination: { page, pageSize, total },
+    };
+  }
+
+  async share(rideId: bigint) {
+    const ride = await this.prisma.ride.findFirst({
+      where: { id: rideId, deleted_at: null },
+      select: {
+        id: true,
+        title: true,
+        departure_time: true,
+        meetup_address: true,
+        destination: true,
+        join_count: true,
+        max_people: true,
+        status: true,
+      },
+    });
+    if (!ride) throw new AppException(3001, '约骑不存在', HttpStatus.NOT_FOUND);
+    const time = ride.departure_time.toLocaleString('zh-CN', {
+      timeZone: 'Asia/Shanghai',
+      month: 'numeric',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    return {
+      title: `${ride.title}｜${time}｜${ride.join_count}/${ride.max_people}人`,
+      path: `/pages/rides/detail/index?id=${ride.id.toString()}`,
+      imageUrl: process.env.RIDE_SHARE_IMAGE_URL ?? '',
+      summary: {
+        departure_time: ride.departure_time.toISOString(),
+        meetup_address: ride.meetup_address,
+        destination: ride.destination,
+        join_count: ride.join_count,
+        max_people: ride.max_people,
+        status: ride.status,
+      },
+    };
+  }
+
+  async relaunchTemplate(userId: bigint, rideId: bigint) {
+    const ride = await this.prisma.ride.findFirst({
+      where: { id: rideId, deleted_at: null },
+      include: {
+        points: { orderBy: { order: 'asc' } },
+        route_links: { take: 1 },
+        participants: {
+          where: { user_id: userId, status: { in: [1, 2] }, deleted_at: null },
+          select: { id: true },
+          take: 1,
+        },
+      },
+    });
+    if (!ride) throw new AppException(3001, '约骑不存在', HttpStatus.NOT_FOUND);
+    if (ride.user_id !== userId && !ride.participants.length) {
+      throw new AppException(52122, '仅原发起人或历史参与者可再次发起', HttpStatus.FORBIDDEN);
+    }
+    if ([1, 2].includes(ride.status) && ride.departure_time > new Date()) {
+      throw new AppException(52123, '同行尚未结束，不能生成再次发起模板');
+    }
+    const link = ride.route_links[0];
+    return {
+      source_ride_id: ride.id.toString(),
+      title: ride.title,
+      ride_style: ride.ride_style,
+      departure_time: null,
+      meetup_address: ride.meetup_address,
+      meetup_lat: Number(ride.meetup_lat),
+      meetup_lng: Number(ride.meetup_lng),
+      destination: ride.destination,
+      destination_point:
+        ride.destination_lat && ride.destination_lng
+          ? {
+              name: ride.destination ?? '终点',
+              latitude: Number(ride.destination_lat),
+              longitude: Number(ride.destination_lng),
+              city_code: ride.destination_city_code,
+              district_code: ride.destination_district_code,
+            }
+          : null,
+      waypoints: ride.points
+        .filter((point) => point.type === 'waypoint')
+        .map((point) => ({
+          name: point.name,
+          address: point.address,
+          latitude: Number(point.latitude),
+          longitude: Number(point.longitude),
+          province_code: point.province_code,
+          city_code: point.city_code,
+          district_code: point.district_code,
+        })),
+      min_people: ride.min_people,
+      max_people: ride.max_people,
+      speed_level: ride.speed_level,
+      bike_requirement: ride.bike_requirement,
+      description: ride.description,
+      rules: ride.rules,
+      city_code: ride.city_code,
+      district_code: ride.district_code,
+      route_id: link?.route_id?.toString() ?? null,
+      user_route_id: link?.user_route_id?.toString() ?? null,
     };
   }
 
@@ -614,11 +911,29 @@ export class RideService {
       meetup_lat: ride.meetup_lat.toString(),
       meetup_lng: ride.meetup_lng.toString(),
       destination: ride.destination,
+      destination_lat: ride.destination_lat?.toString() ?? null,
+      destination_lng: ride.destination_lng?.toString() ?? null,
       max_people: ride.max_people,
       join_count: ride.join_count,
       is_full: ride.join_count >= ride.max_people,
       status: ride.status,
       city_code: ride.city_code,
+      district_code: ride.district_code,
+      points: (ride.points ?? []).map((point) => ({
+        id: point.id.toString(),
+        order: point.order,
+        type: point.type,
+        name: point.name,
+        address: point.address,
+        latitude: point.latitude.toString(),
+        longitude: point.longitude.toString(),
+        province_code: point.province_code,
+        city_code: point.city_code,
+        district_code: point.district_code,
+        source: point.source,
+      })),
+      route_snapshot: ride.route_snapshot,
+      route_snapshot_version: ride.route_snapshot_version,
       view_count: ride.view_count,
       created_at: ride.created_at,
       distance,
@@ -636,23 +951,105 @@ export class RideService {
     };
   }
 
-  private async validateRouteLink(tx: Prisma.TransactionClient, routeId: bigint, cityCode: string) {
+  private rideRegionWhere(query: Pick<RideQueryDto, 'city_code' | 'district_code'>) {
+    if (!query.city_code) return {};
+    const selected = {
+      city_code: query.city_code,
+      ...(query.district_code ? { district_code: query.district_code } : {}),
+    };
+    return {
+      OR: [selected, { points: { some: selected } }],
+    } satisfies Prisma.RideWhereInput;
+  }
+
+  private rideRegionMatch(
+    ride: Pick<RideRecord, 'city_code' | 'district_code' | 'points'>,
+    query: Pick<RideQueryDto, 'city_code' | 'district_code'>,
+  ): 'start' | 'through' | null {
+    if (!query.city_code) return null;
+    const matches = (city?: string | null, district?: string | null) =>
+      city === query.city_code && (!query.district_code || district === query.district_code);
+    if (matches(ride.city_code, ride.district_code)) return 'start';
+    return ride.points.some((point) => matches(point.city_code, point.district_code))
+      ? 'through'
+      : null;
+  }
+
+  private regionRank(match: 'start' | 'through' | null) {
+    return match === 'start' ? 0 : match === 'through' ? 1 : 2;
+  }
+
+  private async validateRouteLink(
+    tx: Prisma.TransactionClient,
+    routeId: bigint,
+  ): Promise<RideRoutePlan> {
     await this.flags.assertEnabled('route.link_enabled');
     const route = await tx.route.findFirst({
       where: { id: routeId, status: 1, deleted_at: null },
-      select: { id: true, city_code: true },
+      select: {
+        id: true,
+        title: true,
+        city_code: true,
+        district_code: true,
+        distance_km: true,
+        duration_min: true,
+        polyline: true,
+        external_route_url: true,
+        points: { orderBy: { order: 'asc' } },
+      },
     });
     if (!route) throw new AppException(53001, '所选路线已下架或不可关联', HttpStatus.CONFLICT);
-    if (route.city_code && route.city_code !== cityCode)
-      throw new AppException(53002, '路线城市与同行城市不一致，请重新确认', HttpStatus.CONFLICT);
-    return route;
+    const start = route.points.find((point) => point.type === 'start') ?? route.points[0];
+    if (!start)
+      throw new AppException(53003, '路线缺少有效起点，请先修复路线', HttpStatus.CONFLICT);
+    const points: RidePointInput[] = route.points
+      .filter((point) => point.type !== 'start')
+      .map((point) => ({
+        type: point.type === 'end' ? 'destination' : 'waypoint',
+        name: point.name,
+        address: point.address ?? point.description,
+        latitude: Number(point.latitude),
+        longitude: Number(point.longitude),
+        province_code: point.province_code,
+        city_code: point.city_code,
+        district_code: point.district_code,
+        source: 'official-route',
+      }));
+    const polyline = this.jsonPolyline(route.polyline);
+    return {
+      type: 'official',
+      id: route.id,
+      title: route.title,
+      start: {
+        name: start.name,
+        latitude: Number(start.latitude),
+        longitude: Number(start.longitude),
+        province_code: start.province_code ?? '650000',
+        city_code: start.city_code ?? route.city_code,
+        district_code: start.district_code ?? route.district_code,
+      },
+      points,
+      polyline,
+      external_route_url: route.external_route_url,
+      snapshot: {
+        source_type: 'official',
+        source_id: route.id.toString(),
+        title: route.title,
+        points: points as unknown as Prisma.InputJsonArray,
+        polyline: polyline as unknown as Prisma.InputJsonArray,
+        distance_km: route.distance_km?.toString() ?? null,
+        duration_min: route.duration_min,
+        external_route_url: route.external_route_url,
+        customized: false,
+      },
+    };
   }
 
   private async validateUserRouteLink(
     tx: Prisma.TransactionClient,
     routeId: bigint,
     userId: bigint,
-  ) {
+  ): Promise<RideRoutePlan> {
     await this.flags.assertEnabled('route.link_enabled');
     const route = await tx.userRoute.findFirst({
       where: {
@@ -660,10 +1057,125 @@ export class RideService {
         status: 1,
         OR: [{ visibility: 2 }, { user_id: userId }],
       },
-      select: { id: true },
+      select: {
+        id: true,
+        title: true,
+        city_code: true,
+        district_code: true,
+        start_location: true,
+        start_lat: true,
+        start_lng: true,
+        end_location: true,
+        end_lat: true,
+        end_lng: true,
+        waypoints: true,
+        total_distance: true,
+        estimated_time: true,
+        polyline: true,
+        external_route_url: true,
+        points: { orderBy: { order: 'asc' } },
+      },
     });
     if (!route) throw new AppException(53001, '所选用户路线已下架或不可关联', HttpStatus.CONFLICT);
-    return route;
+    const routeStart = route.points.find((point) => point.type === 'start');
+    const storedPoints: RidePointInput[] = route.points
+      .filter((point) => point.type !== 'start')
+      .map((point) => ({
+        type: point.type === 'end' ? 'destination' : 'waypoint',
+        name: point.name,
+        address: point.address,
+        latitude: Number(point.latitude),
+        longitude: Number(point.longitude),
+        province_code: point.province_code,
+        city_code: point.city_code,
+        district_code: point.district_code,
+        source: 'user-route',
+      }));
+    const legacyPoints = this.legacyUserRoutePoints(route);
+    const points = storedPoints.length ? storedPoints : legacyPoints;
+    const polyline = this.jsonPolyline(route.polyline);
+    return {
+      type: 'user',
+      id: route.id,
+      title: route.title,
+      start: {
+        name: routeStart?.name ?? route.start_location,
+        latitude: Number(routeStart?.latitude ?? route.start_lat),
+        longitude: Number(routeStart?.longitude ?? route.start_lng),
+        province_code: routeStart?.province_code ?? '650000',
+        city_code: routeStart?.city_code ?? route.city_code,
+        district_code: routeStart?.district_code ?? route.district_code,
+      },
+      points,
+      polyline,
+      external_route_url: route.external_route_url,
+      snapshot: {
+        source_type: 'user',
+        source_id: route.id.toString(),
+        title: route.title,
+        points: points as unknown as Prisma.InputJsonArray,
+        polyline: polyline as unknown as Prisma.InputJsonArray,
+        distance_km: route.total_distance,
+        duration_min: route.estimated_time,
+        external_route_url: route.external_route_url,
+        customized: false,
+      },
+    };
+  }
+
+  private manualRidePoints(
+    waypoints: CreateRideDto['waypoints'],
+    destination?: CreateRideDto['destination_point'],
+  ): RidePointInput[] {
+    return [
+      ...(waypoints ?? []).map((point) => ({
+        ...point,
+        type: 'waypoint' as const,
+        source: 'manual',
+      })),
+      ...(destination ? [{ ...destination, type: 'destination' as const, source: 'manual' }] : []),
+    ];
+  }
+
+  private legacyUserRoutePoints(route: {
+    waypoints: Prisma.JsonValue | null;
+    end_location: string | null;
+    end_lat: Prisma.Decimal | null;
+    end_lng: Prisma.Decimal | null;
+  }): RidePointInput[] {
+    const waypoints: RidePointInput[] = Array.isArray(route.waypoints)
+      ? route.waypoints.flatMap((value) => {
+          if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+          const name = typeof value.name === 'string' ? value.name : '途经点';
+          const latitude = Number(value.latitude);
+          const longitude = Number(value.longitude);
+          return Number.isFinite(latitude) && Number.isFinite(longitude)
+            ? [{ type: 'waypoint' as const, name, latitude, longitude, source: 'user-route' }]
+            : [];
+        })
+      : [];
+    if (route.end_location && route.end_lat && route.end_lng) {
+      waypoints.push({
+        type: 'destination',
+        name: route.end_location,
+        latitude: Number(route.end_lat),
+        longitude: Number(route.end_lng),
+        source: 'user-route',
+      });
+    }
+    return waypoints;
+  }
+
+  private jsonPolyline(value: Prisma.JsonValue | null) {
+    if (!Array.isArray(value)) return [];
+    return value.flatMap((item) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return [];
+      const latitude = Number(item.latitude);
+      const longitude = Number(item.longitude);
+      return Number.isFinite(latitude) && Number.isFinite(longitude)
+        ? [{ latitude, longitude }]
+        : [];
+    });
   }
 
   private serializeRouteLink(

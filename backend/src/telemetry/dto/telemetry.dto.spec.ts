@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { TrackTelemetryEventDto } from './telemetry.dto';
+import { REGION_EVENT_NAMES } from '../region-telemetry';
 
 describe('TrackTelemetryEventDto', () => {
   const payload = {
@@ -22,5 +23,8 @@ describe('TrackTelemetryEventDto', () => {
     const dto = plainToInstance(TrackTelemetryEventDto, { ...payload, name: 'unknown_event' });
     const errors = await validate(dto);
     expect(errors.some((error) => error.property === 'name')).toBe(true);
+  });
+  it.each(REGION_EVENT_NAMES)('accepts region event %s', async (name) => {
+    await expect(validate(plainToInstance(TrackTelemetryEventDto, { ...payload, name }))).resolves.toHaveLength(0);
   });
 });

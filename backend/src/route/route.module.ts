@@ -12,12 +12,18 @@ import { RouteCommentController } from './route-comment.controller';
 import { AdminRouteCommentController } from './admin-route-comment.controller';
 import { UserRouteController } from './user-route.controller';
 import { UserRouteService } from './user-route.service';
+import { UserModule } from '../user/user.module';
+import { MapModule } from '../map/map.module';
+import { AdminUserRouteController } from './admin-user-route.controller';
+import { AdminUserRouteService } from './admin-user-route.service';
+import { RegionModule } from '../region/region.module';
 
 @Module({
-  imports: [AuthModule, AdminModule],
+  imports: [AuthModule, AdminModule, UserModule, MapModule, RegionModule],
   controllers: [
     RouteController,
     AdminRouteController,
+    AdminUserRouteController,
     RouteCommentController,
     AdminRouteCommentController,
     UserRouteController,
@@ -25,6 +31,7 @@ import { UserRouteService } from './user-route.service';
   providers: [
     RouteService,
     AdminRouteService,
+    AdminUserRouteService,
     RouteCacheService,
     RouteCommentService,
     UserRouteService,

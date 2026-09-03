@@ -5,13 +5,15 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import { RouteListQueryDto } from './dto';
 import { ROUTE_LIMITS, ROUTE_STATUS } from './route.constants';
 import { RouteCacheService } from './route-cache.service';
+import { readRegionPage, RegionPhase } from '../region/region-pagination';
+import { officialThroughQuery } from './route-through-query';
 
 const publicRouteInclude = {
   points: { orderBy: { order: 'asc' as const } },
 } satisfies Prisma.RouteInclude;
 
 type PublicRouteRecord = Prisma.RouteGetPayload<{ include: typeof publicRouteInclude }>;
-type RouteCursor = { sortWeight: number; updatedAt: string; id: string };
+type RouteCursor = { sortWeight: number; updatedAt: string; id: string; phase?: RegionPhase };
 type RouteListItem = ReturnType<RouteService['serializeSummary']>;
 type CachedRouteList = { items: RouteListItem[]; nextCursor: string | null; hasMore: boolean };
 
@@ -26,7 +28,10 @@ export class RouteService {
     const limit = query.limit ?? 20;
     const cursor = query.cursor ? this.decodeCursor(query.cursor) : undefined;
     const cacheInput = {
+      ordering_version: 2,
       city_code: query.city_code ?? null,
+      district_code: query.district_code ?? null,
+      region_scope: query.region_scope ?? 'any',
       type: query.type ?? null,
       difficulty: query.difficulty ?? null,
       cursor: query.cursor ?? null,
@@ -36,29 +41,58 @@ export class RouteService {
     if (result && !(await this.cacheIsCurrent(result.items))) result = null;
 
     if (!result) {
-      const routes = await this.prisma.route.findMany({
-        where: {
-          status: ROUTE_STATUS.PUBLISHED,
-          deleted_at: null,
-          ...(query.city_code ? { city_code: query.city_code } : {}),
-          ...(query.type ? { type: query.type } : {}),
-          ...(query.difficulty ? { difficulty: query.difficulty } : {}),
-          ...(cursor ? { AND: [this.cursorWhere(cursor)] } : {}),
-        },
-        orderBy: [{ sort_weight: 'desc' }, { updated_at: 'desc' }, { id: 'desc' }],
-        take: limit + 1,
-      });
-      const hasMore = routes.length > limit;
-      const page = hasMore ? routes.slice(0, limit) : routes;
+      const read = async (
+        regionQuery: RouteListQueryDto,
+        after: RouteCursor | undefined,
+        take: number,
+      ) => {
+        const candidates =
+          regionQuery.city_code && regionQuery.region_scope === 'through'
+            ? await this.prisma.$queryRaw<Array<{ id: bigint }>>(
+                officialThroughQuery(regionQuery, after, take),
+              )
+            : undefined;
+        if (candidates && !candidates.length) return [];
+        return this.prisma.route.findMany({
+          where: {
+            ...(candidates ? { id: { in: candidates.map((row) => row.id) } } : {}),
+            status: ROUTE_STATUS.PUBLISHED,
+            deleted_at: null,
+            ...(after
+              ? { AND: [this.regionWhere(regionQuery), this.cursorWhere(after)] }
+              : this.regionWhere(regionQuery)),
+            ...(query.type ? { type: query.type } : {}),
+            ...(query.difficulty ? { difficulty: query.difficulty } : {}),
+          },
+          include: { regions: true },
+          orderBy: [{ sort_weight: 'desc' }, { updated_at: 'desc' }, { id: 'desc' }],
+          take,
+        });
+      };
+      const partitioned = Boolean(
+        query.city_code && (!query.region_scope || query.region_scope === 'any'),
+      );
+      const grouped = partitioned
+        ? await readRegionPage({
+            limit,
+            phase: cursor?.phase,
+            cursor,
+            read: (phase, after, take) => read({ ...query, region_scope: phase }, after, take),
+          })
+        : undefined;
+      const routes = grouped ? [] : await read(query, cursor, limit + 1);
+      const hasMore = grouped ? grouped.hasMore : routes.length > limit;
+      const page = grouped ? grouped.rows.map((row) => row.value) : routes.slice(0, limit);
       const last = page.at(-1);
       result = {
-        items: page.map((route) => this.serializeSummary(route)),
+        items: page.map((route) => this.serializeSummary(route, query)),
         nextCursor:
           hasMore && last
             ? this.encodeCursor({
                 sortWeight: last.sort_weight,
                 updatedAt: last.updated_at.toISOString(),
                 id: last.id.toString(),
+                ...(grouped ? { phase: grouped.rows.at(-1)!.phase } : {}),
               })
             : null,
         hasMore,
@@ -101,6 +135,15 @@ export class RouteService {
         )
       : false;
     return { ...serialized, is_favorited: isFavorited };
+  }
+
+  async share(id: bigint) {
+    const route = await this.detail(id);
+    return {
+      title: `${route.title}｜摩搭子路线`,
+      path: `/packageRoutes/pages/detail/index?id=${route.id}`,
+      imageUrl: route.cover_image ?? process.env.ROUTE_SHARE_IMAGE_URL ?? '',
+    };
   }
 
   async favorite(userId: bigint, routeId: bigint) {
@@ -216,7 +259,8 @@ export class RouteService {
         typeof parsed.updatedAt !== 'string' ||
         Number.isNaN(new Date(parsed.updatedAt).getTime()) ||
         typeof parsed.id !== 'string' ||
-        !/^[1-9]\d*$/.test(parsed.id)
+        !/^[1-9]\d*$/.test(parsed.id) ||
+        (parsed.phase !== undefined && parsed.phase !== 'start' && parsed.phase !== 'through')
       ) {
         throw new Error('invalid cursor');
       }
@@ -253,21 +297,26 @@ export class RouteService {
     return items.map((item) => ({ ...item, is_favorited: ids.has(item.id) }));
   }
 
-  private serializeSummary(route: {
-    id: bigint;
-    title: string;
-    summary: string | null;
-    cover_image: string | null;
-    city_code: string | null;
-    city_name: string | null;
-    type: string | null;
-    difficulty: string | null;
-    distance_km: Prisma.Decimal | null;
-    duration_min: number | null;
-    favorite_count: number;
-    sort_weight: number;
-    updated_at: Date;
-  }) {
+  private serializeSummary(
+    route: {
+      id: bigint;
+      title: string;
+      summary: string | null;
+      cover_image: string | null;
+      city_code: string | null;
+      city_name: string | null;
+      type: string | null;
+      difficulty: string | null;
+      distance_km: Prisma.Decimal | null;
+      duration_min: number | null;
+      favorite_count: number;
+      sort_weight: number;
+      updated_at: Date;
+      district_code?: string | null;
+      regions?: Array<{ city_code: string; district_code: string; has_start: boolean }>;
+    },
+    region?: Pick<RouteListQueryDto, 'city_code' | 'district_code'>,
+  ) {
     return {
       id: route.id.toString(),
       title: route.title,
@@ -275,6 +324,8 @@ export class RouteService {
       cover_image: route.cover_image,
       city_code: route.city_code,
       city_name: route.city_name,
+      district_code: route.district_code ?? null,
+      region_match: this.routeRegionMatch(route, region),
       type: route.type,
       difficulty: route.difficulty,
       distance_km: route.distance_km?.toString() ?? null,
@@ -283,6 +334,64 @@ export class RouteService {
       sort_weight: route.sort_weight,
       updated_at: route.updated_at.toISOString(),
     };
+  }
+
+  private regionWhere(query: RouteListQueryDto): Prisma.RouteWhereInput {
+    if (!query.city_code) return {};
+    const code = {
+      city_code: query.city_code,
+      ...(query.district_code ? { district_code: query.district_code } : {}),
+    };
+    const primary: Prisma.RouteWhereInput = code;
+    const through: Prisma.RouteWhereInput = {
+      regions: {
+        some: {
+          city_code: query.city_code,
+          ...(query.district_code ? { district_code: query.district_code } : {}),
+        },
+      },
+    };
+    if (query.region_scope === 'start') return primary;
+    // SQL NOT(city = x AND district = y) also excludes NULL values; those
+    // legacy rows can still have a valid coverage match and must remain visible.
+    if (query.region_scope === 'through')
+      return {
+        AND: [
+          through,
+          {
+            OR: [
+              { city_code: { not: query.city_code } },
+              { city_code: null },
+              ...(query.district_code
+                ? [{ district_code: { not: query.district_code } }, { district_code: null }]
+                : []),
+            ],
+          },
+        ],
+      };
+    return { OR: [primary, through] };
+  }
+
+  private routeRegionMatch(
+    route: {
+      city_code: string | null;
+      district_code?: string | null;
+      regions?: Array<{ city_code: string; district_code: string }>;
+    },
+    region?: Pick<RouteListQueryDto, 'city_code' | 'district_code'>,
+  ): 'start' | 'through' | null {
+    if (!region?.city_code) return null;
+    const primary =
+      route.city_code === region.city_code &&
+      (!region.district_code || route.district_code === region.district_code);
+    if (primary) return 'start';
+    return route.regions?.some(
+      (item) =>
+        item.city_code === region.city_code &&
+        (!region.district_code || item.district_code === region.district_code),
+    )
+      ? 'through'
+      : null;
   }
 
   private serializeDetail(route: PublicRouteRecord) {
@@ -294,6 +403,13 @@ export class RouteService {
       suitable_motorcycles: route.suitable_motorcycles,
       best_season: route.best_season,
       safety_notice: route.safety_notice,
+      district_code: route.district_code,
+      polyline_status: route.polyline_status,
+      polyline_provider: route.polyline_provider,
+      polyline_updated_at: route.polyline_updated_at?.toISOString() ?? null,
+      external_route_url: route.external_url_status === 1 ? route.external_route_url : null,
+      external_route_provider: route.external_route_provider,
+      external_url_status: route.external_url_status,
       published_at: route.published_at?.toISOString() ?? null,
       points: route.points.map((point) => ({
         id: point.id.toString(),
@@ -303,6 +419,10 @@ export class RouteService {
         longitude: point.longitude.toString(),
         type: point.type,
         description: point.description,
+        address: point.address,
+        province_code: point.province_code,
+        city_code: point.city_code,
+        district_code: point.district_code,
       })),
     };
   }
