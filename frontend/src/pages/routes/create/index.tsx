@@ -332,7 +332,7 @@ export default function UserRouteCreatePage() {
           className="user-route-form__input"
           value={form.externalRouteUrl}
           maxlength={1000}
-          placeholder="高德、腾讯或百度地图 HTTPS 路线链接"
+          placeholder="包含 map 的 HTTPS 路线链接"
           onInput={(e) => update("externalRouteUrl", e.detail.value)}
         />
         <Text className="user-route-meta">

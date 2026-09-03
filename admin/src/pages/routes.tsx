@@ -322,7 +322,7 @@ export function RoutesPage() {
         <Form.Item label="路况" name="road_condition"><Input.TextArea rows={2} maxLength={500} showCount /></Form.Item>
         <Form.Item label="适合车型" name="suitable_motorcycles"><Input maxLength={200} /></Form.Item>
         <Form.Item label="安全提示" name="safety_notice"><Input.TextArea rows={3} maxLength={1000} showCount /></Form.Item>
-        <Form.Item label="第三方路线链接" name="external_route_url" tooltip="支持腾讯、高德、百度地图的 HTTPS 路线链接" rules={[{ type: 'url', message: '请输入有效 HTTPS URL' }]}><Input maxLength={1000} placeholder="https://..." /></Form.Item>
+        <Form.Item label="第三方路线链接" name="external_route_url" tooltip="支持链接内容包含 map 的安全 HTTPS 路线地址" rules={[{ type: 'url', message: '请输入有效 HTTPS URL' }]}><Input maxLength={1000} placeholder="包含 map 的 https://..." /></Form.Item>
         <Form.Item label="关联约骑 ID（逗号分隔，最多 20 个）" name="related_ride_ids_text" rules={[{ validator: validateRelatedRideIds }]}><Input /></Form.Item>
         <Typography.Title level={5}>路线点位</Typography.Title>
         <Form.Item name="points" rules={[{ validator: (_, points?: RoutePointInput[]) => { if ((points?.length ?? 0) > 50) return Promise.reject(new Error('最多 50 个点位')); const unresolved = points?.findIndex((point) => !point.city_code) ?? -1; if (unresolved >= 0) return Promise.reject(new Error(`请确认第 ${unresolved + 1} 个点位所属城市`)); return Promise.resolve(); } }]}><RouteMapEditor /></Form.Item>

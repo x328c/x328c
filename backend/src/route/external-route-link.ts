@@ -1,27 +1,6 @@
 import { AppException } from '../common/exceptions/app.exception';
 
-const DEFAULT_ALLOWED_HOSTS = [
-  'maps.qq.com',
-  'map.qq.com',
-  'uri.amap.com',
-  'www.amap.com',
-  'ditu.amap.com',
-  'j.map.baidu.com',
-  'map.baidu.com',
-];
-
 const PRIVATE_IPV4 = /^(?:127\.|10\.|0\.|169\.254\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.)/;
-
-function allowlist(): string[] {
-  const configured = process.env.ROUTE_EXTERNAL_URL_ALLOWLIST?.split(',')
-    .map((item) => item.trim().toLowerCase())
-    .filter(Boolean);
-  return configured?.length ? configured : DEFAULT_ALLOWED_HOSTS;
-}
-
-function matchesHost(hostname: string, allowed: string): boolean {
-  return hostname === allowed || hostname.endsWith(`.${allowed}`);
-}
 
 function providerFor(hostname: string): string {
   if (hostname.endsWith('qq.com')) return 'tencent';
@@ -58,12 +37,13 @@ export function normalizeExternalRouteUrl(value?: string | null): {
     url.password ||
     hostname === 'localhost' ||
     hostname === '::1' ||
-    PRIVATE_IPV4.test(hostname) ||
-    !allowlist().some((allowed) => matchesHost(hostname, allowed))
+    PRIVATE_IPV4.test(hostname)
   ) {
-    throw new AppException(53102, '仅支持受信任地图平台的 HTTPS 路线链接');
+    throw new AppException(53102, '仅支持包含 map 的安全 HTTPS 路线链接');
   }
   url.hash = '';
+  if (!/map/i.test(url.toString()))
+    throw new AppException(53102, '仅支持包含 map 的安全 HTTPS 路线链接');
   return {
     external_route_url: url.toString(),
     external_route_provider: providerFor(hostname),
