@@ -300,14 +300,15 @@ run('V2.3 isolated region service performance', () => {
         }),
       );
       timings.sort((a, b) => a - b);
+      const percentile = (p: number) => timings[Math.floor(timings.length * p)];
       measured.push({
         scenario: scenario.name,
         samples: timings.length,
         concurrency: 5,
         threshold_ms: scenario.limitMs,
-        p50_ms: timings[99],
-        p95_ms: timings[189],
-        p99_ms: timings[197],
+        p50_ms: percentile(0.5),
+        p95_ms: percentile(0.95),
+        p99_ms: percentile(0.99),
         max_ms: timings.at(-1),
         plans,
         main_table_full_scans: plans

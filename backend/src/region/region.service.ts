@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { AppException } from '../common/exceptions/app.exception';
 import {
+  XINJIANG_BOUNDS,
   XINJIANG_CITIES,
   XINJIANG_PROVINCE,
   XINJIANG_REGION_DATA_VERSION,
@@ -53,15 +54,15 @@ export class RegionService {
     label = '地点',
   ) {
     this.assertSupported(point.city_code ?? undefined, point.district_code ?? undefined, label);
-    if (point.province_code && point.province_code !== '650000')
+    if (point.province_code && point.province_code !== XINJIANG_PROVINCE.code)
       throw new AppException(51120, `${label}不属于当前支持的新疆地区`);
     if (
       !Number.isFinite(point.latitude) ||
       !Number.isFinite(point.longitude) ||
-      point.latitude < 34 ||
-      point.latitude > 50 ||
-      point.longitude < 73 ||
-      point.longitude > 97
+      point.latitude < XINJIANG_BOUNDS.minLat ||
+      point.latitude > XINJIANG_BOUNDS.maxLat ||
+      point.longitude < XINJIANG_BOUNDS.minLng ||
+      point.longitude > XINJIANG_BOUNDS.maxLng
     ) {
       throw new AppException(51123, `${label}坐标不在当前支持的新疆范围内`);
     }

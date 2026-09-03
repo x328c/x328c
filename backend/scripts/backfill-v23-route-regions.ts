@@ -261,17 +261,21 @@ async function main() {
             JSON.stringify({ resource: key, ...event }) + '\n',
             { mode: 0o600 },
           );
-          saveCheckpoint(directory, checkpoint);
         }
+        // Persist once per batch instead of per record to avoid O(n²) I/O.
+        saveCheckpoint(directory, checkpoint);
         after = rows.at(-1)!.id;
       }
     }
-  } catch {
+  } catch (error) {
     aborted = true;
     counts.failed++;
+    const message = error instanceof Error ? error.message : String(error);
+    const stack = error instanceof Error ? error.stack : undefined;
     appendFileSync(
       join(directory, 'results.jsonl'),
-      JSON.stringify({ scope: 'run', status: 'failed', reason: 'scan_or_report_failure' }) + '\n',
+      JSON.stringify({ scope: 'run', status: 'failed', reason: 'scan_or_report_failure', message, stack }) +
+        '\n',
       { mode: 0o600 },
     );
   }
@@ -285,9 +289,10 @@ async function main() {
 
 if (require.main === module)
   main()
-    .catch(() => {
+    .catch((error) => {
+      const message = error instanceof Error ? error.message : String(error);
       console.error(
-        'Backfill stopped. Check arguments, checkpoint mode/database/catalog and database access; no raw errors are printed.',
+        `Backfill stopped: ${message}. Check arguments, checkpoint mode/database/catalog and database access.`,
       );
       process.exitCode = 1;
     })

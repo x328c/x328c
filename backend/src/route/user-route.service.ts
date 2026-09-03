@@ -343,17 +343,19 @@ export class UserRouteService {
       dto.waypoints !== undefined ||
       dto.end_lat !== undefined ||
       dto.end_lng !== undefined
-        ? {
-            polyline: (plannedPolyline ??
-              this.pointSequence(dto)) as unknown as Prisma.InputJsonValue,
-            polyline_status: (plannedPolyline ?? this.pointSequence(dto)).length >= 2 ? 1 : 0,
-            polyline_provider: plannedPolyline?.length
-              ? 'tencent-driving'
-              : this.pointSequence(dto).length >= 2
-                ? 'point-sequence'
-                : null,
-            polyline_updated_at: new Date(),
-          }
+        ? (() => {
+            const sequence = plannedPolyline ?? this.pointSequence(dto);
+            return {
+              polyline: sequence as unknown as Prisma.InputJsonValue,
+              polyline_status: sequence.length >= 2 ? 1 : 0,
+              polyline_provider: plannedPolyline?.length
+                ? 'tencent-driving'
+                : sequence.length >= 2
+                  ? 'point-sequence'
+                  : null,
+              polyline_updated_at: new Date(),
+            };
+          })()
         : {}),
       ...(dto.total_distance !== undefined ? { total_distance: dto.total_distance } : {}),
       ...(dto.estimated_time !== undefined ? { estimated_time: dto.estimated_time } : {}),
@@ -394,12 +396,7 @@ export class UserRouteService {
   ) {
     const hasMore = records.length > limit;
     const pageRecords = records.slice(0, limit);
-    const items = pageRecords
-      .map((item) => this.serialize(item, viewerId, region))
-      .sort(
-        (left, right) =>
-          (left.region_match === 'through' ? 1 : 0) - (right.region_match === 'through' ? 1 : 0),
-      );
+    const items = pageRecords.map((item) => this.serialize(item, viewerId, region));
     return {
       items,
       hasMore,

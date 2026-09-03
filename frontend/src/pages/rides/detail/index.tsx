@@ -82,7 +82,7 @@ export default function RideDetailPage() {
     if (!ride.meetup_lat || !ride.meetup_lng) return Taro.showToast({ title: "暂未提供坐标", icon: "none" });
     void Taro.openLocation({ latitude: Number(ride.meetup_lat), longitude: Number(ride.meetup_lng), name: ride.meetup_address, address: ride.meetup_address, scale: 16 });
   };
-  const openPoint = (point: RideDetail["points"][number]) => { void Taro.openLocation({ latitude: Number(point.latitude), longitude: Number(point.longitude), name: point.name, address: point.address || point.name, scale: 16 }); };
+  const openPoint = (point: NonNullable<RideDetail["points"]>[number]) => { void Taro.openLocation({ latitude: Number(point.latitude), longitude: Number(point.longitude), name: point.name, address: point.address || point.name, scale: 16 }); };
   const contact = () => {
     const wechat = ride.creator.wechat_id;
     if (!wechat) return Taro.showToast({ title: "发起人暂未公开微信号", icon: "none" });

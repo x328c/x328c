@@ -261,6 +261,7 @@ export class UserService {
   }
 
   private toOwnerProfile(user: ProfileRecord) {
+    const missing = this.missingProfileFields(user);
     return {
       id: user.id.toString(),
       openid: user.openid,
@@ -286,8 +287,8 @@ export class UserService {
             bio: user.profile.bio,
           }
         : null,
-      profile_complete: this.missingProfileFields(user).length === 0,
-      missing_profile_fields: this.missingProfileFields(user),
+      profile_complete: missing.length === 0,
+      missing_profile_fields: missing,
     };
   }
 

@@ -5,6 +5,7 @@ import type {
   RideDetail,
   RideListResponse,
   RideParticipantsResponse,
+  RideShareSummary,
   RideSummary,
   RideRelaunchTemplate,
   ShareMetadata,
@@ -38,7 +39,7 @@ export const rideService = {
     });
   },
   share(id: string) {
-    return request<ShareMetadata & { summary: Record<string, unknown> }>({ url: `${API_BASE}/rides/${id}/share`, method: "GET" });
+    return request<ShareMetadata & { summary: RideShareSummary }>({ url: `${API_BASE}/rides/${id}/share`, method: "GET" });
   },
   relaunchTemplate(id: string) {
     return request<RideRelaunchTemplate>({ url: `${API_BASE}/rides/${id}/relaunch-template`, method: "GET" });

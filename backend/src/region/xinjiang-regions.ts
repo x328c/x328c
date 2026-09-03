@@ -13,6 +13,9 @@ export interface RegionCity {
 export const XINJIANG_REGION_DATA_VERSION = '2025-12-31';
 export const XINJIANG_PROVINCE = { code: '650000', name: '新疆维吾尔自治区' } as const;
 
+// 粗略地理围栏（度）：仅用于拒绝明显越界坐标，不替代真实行政区边界校验。
+export const XINJIANG_BOUNDS = { minLat: 34, maxLat: 50, minLng: 73, maxLng: 97 } as const;
+
 // 固化自 2025 年县级以上行政区划数据。点位城市来自 wx.choosePoi.city 的受控名称匹配，
 // 无法匹配时由用户人工确认；服务端只校验该目录，不调用第三方逆地址解析。
 export const XINJIANG_CITIES: readonly RegionCity[] = [

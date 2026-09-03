@@ -130,6 +130,8 @@ export function RoutesPage() {
     try {
       const result = await adminApi.userRoutes({ page: next, pageSize: 20, ...userRouteFilterForm.getFieldsValue() });
       setUserRouteItems(result.list); setUserRouteTotal(result.pagination.total); setUserRoutePage(next);
+    } catch (error) {
+      message.error(axios.isAxiosError(error) ? (error.response?.data?.message ?? '用户路线加载失败') : '用户路线加载失败');
     } finally { setUserRouteLoading(false); }
   }, [userRouteFilterForm]);
 
@@ -140,6 +142,8 @@ export function RoutesPage() {
     try {
       const result = await adminApi.routeComments({ page: 1, pageSize: 100, report_order: commentReportOrder });
       setComments(result.list);
+    } catch (error) {
+      message.error(axios.isAxiosError(error) ? (error.response?.data?.message ?? '评论加载失败') : '评论加载失败');
     } finally { setCommentsLoading(false); }
   }, [commentReportOrder]);
 

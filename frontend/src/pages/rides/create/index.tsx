@@ -1,6 +1,6 @@
 import { Input, Picker, Text, Textarea, View } from "@tarojs/components";
 import Taro, { useDidShow, useLoad } from "@tarojs/taro";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { RegionConfirmSheet } from "@/components";
 import { RIDE_STYLES } from "@/constants";
 import { rideService } from "@/services/rides";
@@ -106,6 +106,7 @@ export default function CreateRidePage() {
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated] = useState<RideSummary | undefined>(undefined);
   const [selectedRoute, setSelectedRoute] = useState<LinkedRoute>();
+  const linkedRouteKey = useRef<string>();
   const [routeCustomized, setRouteCustomized] = useState(false);
   const [catalog, setCatalog] = useState<RegionCatalog>();
   const [pending, setPending] = useState<{
@@ -274,6 +275,7 @@ export default function CreateRidePage() {
     }
     if (!options.routeId) return;
     const source = options.routeSource === "user" ? "user" : "official";
+    linkedRouteKey.current = `${source}:${options.routeId}`;
     void loadLinkedRoute(source, options.routeId)
       .then(applyLinkedRoute)
       .catch(() =>
@@ -290,6 +292,7 @@ export default function CreateRidePage() {
     }>("v22:create-route");
     if (
       stored?.id &&
+      linkedRouteKey.current !== `${stored.source_type ?? "official"}:${stored.id}` &&
       (stored.id !== selectedRoute?.id ||
         stored.source_type !== selectedRoute?.source_type)
     ) {

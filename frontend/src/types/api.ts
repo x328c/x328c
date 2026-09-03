@@ -46,8 +46,8 @@ export interface RideSummary {
   region_match?: "start" | "through" | null;
   destination_lat?: string | null;
   destination_lng?: string | null;
-  points: RidePointLocation[];
-  route_snapshot?: Record<string, unknown> | null;
+  points?: RidePointLocation[];
+  route_snapshot?: RideRouteSnapshot | null;
   distance?: number | null;
   creator: RideCreator;
   participant_avatars: string[];
@@ -65,6 +65,18 @@ export interface RideDetail extends RideSummary {
 
 export interface RideLocationInput { name: string; address?: string; latitude: number; longitude: number; province_code?: string; city_code?: string; district_code?: string }
 export interface RidePointLocation extends RideLocationInput { id: string; order: number; type: "waypoint" | "destination"; source: string }
+
+export interface RideRouteSnapshot {
+  source_type: "official" | "user";
+  source_id: string;
+  title: string;
+  points?: RidePointLocation[];
+  polyline?: Array<{ latitude: number; longitude: number }>;
+  distance_km?: number | null;
+  duration_min?: number | null;
+  external_route_url?: string | null;
+  customized?: boolean;
+}
 
 export interface Pagination {
   page: number;
@@ -186,6 +198,14 @@ export interface UserRoutePayload {
   total_distance?: number; estimated_time?: number; difficulty?: number; images?: string[]; visibility: 1 | 2;
 }
 export interface ShareMetadata { title: string; path: string; imageUrl: string }
+export interface RideShareSummary {
+  departure_time: string;
+  meetup_address: string;
+  destination: string | null;
+  join_count: number;
+  max_people: number;
+  status: number;
+}
 export interface SafetyGuide {
   code: string; title: string; summary: string; version: string; content: Record<string, unknown>;
   contentHash: string; publishedAt?: string | null; lastVerifiedAt?: string | null; stale: boolean;

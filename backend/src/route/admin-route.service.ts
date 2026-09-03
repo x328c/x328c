@@ -115,19 +115,7 @@ export class AdminRouteService {
     const route = await this.findRoute(id);
     if (dto.points === undefined &&
       (dto.city_code !== undefined || dto.district_code !== undefined || dto.city_name !== undefined)) {
-      const start = route.points.find((point) => point.type === 'start');
-      if (start) {
-        this.regions.assertSupported(start.city_code ?? undefined, start.district_code ?? undefined, '起点');
-        if ((dto.city_code !== undefined && dto.city_code !== start.city_code) ||
-          (dto.district_code !== undefined && (dto.district_code || null) !== (start.district_code || null)))
-          throw new AppException(53007, '请在地图点位中修改起点所属地区，不能仅修改路线主城市');
-        dto = { ...dto, city_code: start.city_code!, district_code: start.district_code ?? '', city_name: this.regions.city(start.city_code!)!.name };
-      } else {
-        const cityCode = dto.city_code ?? route.city_code ?? undefined;
-        const districtCode = dto.district_code ?? (dto.city_code !== undefined && dto.city_code !== route.city_code ? undefined : route.district_code ?? undefined);
-        this.regions.assertSupported(cityCode, districtCode, '路线所属地区');
-        dto = { ...dto, city_code: cityCode, district_code: districtCode ?? '', city_name: this.regions.city(cityCode!)!.name };
-      }
+      dto = this.resolvePrimaryRegion(route, dto);
     }
     const prepared = await this.prepareMapData(dto);
     dto = prepared.dto;
@@ -262,6 +250,30 @@ export class AdminRouteService {
     });
     if (!route) throw new AppException(53002, '路线不存在', HttpStatus.NOT_FOUND);
     return route;
+  }
+
+  // 仅修改主城市/区县（未提交点位）时，起点驱动主归属；起点缺城市时回退到 DTO/现有值。
+  private resolvePrimaryRegion(route: AdminRouteRecord, dto: UpdateRouteDto): UpdateRouteDto {
+    const start = route.points.find((point) => point.type === 'start');
+    if (start) {
+      this.regions.assertSupported(start.city_code ?? undefined, start.district_code ?? undefined, '起点');
+      if (
+        (dto.city_code !== undefined && dto.city_code !== start.city_code) ||
+        (dto.district_code !== undefined &&
+          (dto.district_code || null) !== (start.district_code || null))
+      )
+        throw new AppException(53007, '请在地图点位中修改起点所属地区，不能仅修改路线主城市');
+      const cityName = this.regions.city(start.city_code!)!.name;
+      return { ...dto, city_code: start.city_code!, district_code: start.district_code ?? '', city_name: cityName };
+    }
+    const cityCode = dto.city_code ?? route.city_code ?? undefined;
+    const districtCode =
+      dto.district_code ??
+      (dto.city_code !== undefined && dto.city_code !== route.city_code
+        ? undefined
+        : route.district_code ?? undefined);
+    this.regions.assertSupported(cityCode, districtCode, '路线所属地区');
+    return { ...dto, city_code: cityCode, district_code: districtCode ?? '', city_name: this.regions.city(cityCode!)!.name };
   }
 
   private assertStateMutation(count: number): void {

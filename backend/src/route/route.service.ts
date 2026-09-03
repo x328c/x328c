@@ -61,8 +61,8 @@ export class RouteService {
             ...(after
               ? { AND: [this.regionWhere(regionQuery), this.cursorWhere(after)] }
               : this.regionWhere(regionQuery)),
-            ...(query.type ? { type: query.type } : {}),
-            ...(query.difficulty ? { difficulty: query.difficulty } : {}),
+            ...(regionQuery.type ? { type: regionQuery.type } : {}),
+            ...(regionQuery.difficulty ? { difficulty: regionQuery.difficulty } : {}),
           },
           include: { regions: true },
           orderBy: [{ sort_weight: 'desc' }, { updated_at: 'desc' }, { id: 'desc' }],

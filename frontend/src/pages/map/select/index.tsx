@@ -10,6 +10,7 @@ export default function CoordinatePickerPage() {
   const [busy, setBusy] = useState(false);
   const [mapFailed, setMapFailed] = useState(false);
   const saving = useRef(false);
+  const unmounted = useRef(false);
   const channel = useRef<{ emit: (event: string, point?: unknown) => void }>();
   useLoad((params) => {
     const opener = Taro.getCurrentInstance().page?.getOpenerEventChannel?.();
@@ -19,7 +20,10 @@ export default function CoordinatePickerPage() {
       if (hasValidLocationPoint(point)) setCenter(point);
     }
   });
-  useUnload(() => channel.current?.emit("coordinateCancelled"));
+  useUnload(() => {
+    unmounted.current = true;
+    channel.current?.emit("coordinateCancelled");
+  });
   const locate = async () => {
     try {
       const point = await Taro.getLocation({ type: "gcj02" });
@@ -37,8 +41,8 @@ export default function CoordinatePickerPage() {
         latitude: point.latitude, longitude: point.longitude, name: name.trim(), address: "",
       });
       await Taro.navigateBack();
-    } catch { void Taro.showToast({ title: "无法读取地图中心，请重试", icon: "none" }); }
-    finally { saving.current = false; setBusy(false); }
+    } catch { if (!unmounted.current) void Taro.showToast({ title: "无法读取地图中心，请重试", icon: "none" }); }
+    finally { saving.current = false; if (!unmounted.current) setBusy(false); }
   };
   return <View className="coordinate-picker">
     <View className="coordinate-picker__map">

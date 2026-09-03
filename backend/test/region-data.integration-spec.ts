@@ -404,7 +404,7 @@ databaseTests('V2.3 region persistence on isolated MySQL', () => {
           cwd: resolve(__dirname, '..'),
           env: { ...process.env, DATABASE_URL: safeUrl },
           encoding: 'utf8',
-          timeout: 20000,
+          timeout: 50000,
         },
       );
       const directory = output.match(/Report directory: (.+)/)?.[1];

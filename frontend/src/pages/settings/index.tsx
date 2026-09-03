@@ -53,7 +53,7 @@ export default function Settings() {
   const clearCache = async () => {
     const result = await Taro.showModal({ title: "清理非关键缓存", content: "不会清除账号登录、登录回跳和待发布草稿。", confirmText: "清理" });
     if (!result.confirm) return;
-    const protectedKeys = new Set(["jiangxing_access_token", "jiangxing_refresh_token", "jiangxing_user", "modazi_login_return_url", "v21:create-route"]);
+    const protectedKeys = new Set(["jiangxing_access_token", "jiangxing_refresh_token", "jiangxing_user", "modazi_login_return_url", "v21:create-route", "v22:create-route"]);
     const keys = Taro.getStorageInfoSync().keys.filter((key) => !protectedKeys.has(key) && !key.includes("draft") && !key.includes("idempotency"));
     keys.forEach((key) => Taro.removeStorageSync(key));
     Taro.showToast({ title: `已清理 ${keys.length} 项缓存`, icon: "success" });

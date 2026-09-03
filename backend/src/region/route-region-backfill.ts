@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { RegionService } from './region.service';
+import { XINJIANG_BOUNDS, XINJIANG_PROVINCE } from './xinjiang-regions';
 
 type Coordinate = number | string | { toString(): string } | null;
 export interface BackfillPoint {
@@ -139,15 +140,15 @@ export function planRouteRegionBackfill(kind: BackfillKind, route: BackfillRoute
       issues.push({ code: 'unsupported_city', order: point.order });
     else if (point.district_code && !directory.isSupported(point.city_code, point.district_code))
       issues.push({ code: 'district_city_mismatch', order: point.order });
-    if (point.province_code !== '650000')
+    if (point.province_code !== XINJIANG_PROVINCE.code)
       issues.push({ code: 'unsupported_province', order: point.order });
     if (
       !Number.isFinite(point.latitude) ||
       !Number.isFinite(point.longitude) ||
-      point.latitude < 34 ||
-      point.latitude > 50 ||
-      point.longitude < 73 ||
-      point.longitude > 97
+      point.latitude < XINJIANG_BOUNDS.minLat ||
+      point.latitude > XINJIANG_BOUNDS.maxLat ||
+      point.longitude < XINJIANG_BOUNDS.minLng ||
+      point.longitude > XINJIANG_BOUNDS.maxLng
     )
       issues.push({ code: 'invalid_coordinates', order: point.order });
   }

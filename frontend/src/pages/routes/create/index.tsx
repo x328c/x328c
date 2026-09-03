@@ -1,6 +1,6 @@
 import { Image, Input, Text, Textarea, View } from "@tarojs/components";
-import Taro, { useLoad } from "@tarojs/taro";
-import { useEffect, useState } from "react";
+import Taro, { useLoad, useUnload } from "@tarojs/taro";
+import { useEffect, useRef, useState } from "react";
 import { RegionConfirmSheet } from "@/components";
 import { userRouteService } from "@/services/user-routes";
 import { trackRegionEvent, trackRegionRejection } from "@/services/region-analytics";
@@ -48,6 +48,10 @@ export default function UserRouteCreatePage() {
   const [confirmDistrict, setConfirmDistrict] = useState<string>();
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const redirectTimer = useRef<ReturnType<typeof setTimeout>>();
+  useUnload(() => {
+    if (redirectTimer.current) clearTimeout(redirectTimer.current);
+  });
   useEffect(() => {
     void loadRegionCatalog().then(setCatalog).catch(() => undefined);
   }, []);
@@ -98,7 +102,15 @@ export default function UserRouteCreatePage() {
             images: route.images,
             visibility: route.visibility,
           }),
-        );
+        )
+        .catch(() => {
+          // 详情加载失败时回退为新建模式，避免用空表单覆盖原路线。
+          setId("");
+          Taro.showToast({
+            title: "路线加载失败，请重新进入",
+            icon: "none",
+          });
+        });
     }
   });
   const applyPoint = (
@@ -223,7 +235,7 @@ export default function UserRouteCreatePage() {
         ? await userRouteService.update(id, payload)
         : await userRouteService.create(payload);
       Taro.showToast({ title: "保存成功", icon: "success" });
-      setTimeout(
+      redirectTimer.current = setTimeout(
         () =>
           Taro.redirectTo({ url: `/pages/routes/detail/index?id=${route.id}` }),
         500,

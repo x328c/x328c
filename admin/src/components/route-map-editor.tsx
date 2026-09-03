@@ -1,6 +1,6 @@
 import { AimOutlined, ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined } from '@ant-design/icons';
 import { Alert, Button, Input, InputNumber, Select, Space, Typography } from 'antd';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { RoutePointInput, RoutePointType } from '../types';
 import type { RegionCatalog } from '../types';
 import { adminApi } from '../api/admin';
@@ -42,6 +42,8 @@ function loadTencentMap(key: string): Promise<TencentMapApi> {
       script.onerror = () => reject(new Error('地图 SDK 加载失败'));
       document.head.appendChild(script);
     });
+    // 加载失败后清除缓存，允许重新打开编辑器时重试。
+    sdkPromise.catch(() => { sdkPromise = undefined; });
   }
   return sdkPromise;
 }
@@ -67,11 +69,25 @@ export function RouteMapEditor({ value = [], onChange }: RouteMapEditorProps) {
   const [mapError, setMapError] = useState('');
   const [catalog, setCatalog] = useState<RegionCatalog>();
 
+  const cityOptions = useMemo(
+    () => catalog?.cities.map((city) => ({ value: city.code, label: city.name })) ?? [],
+    [catalog],
+  );
+  const districtOptionsByCity = useMemo(() => {
+    const map = new Map<string, Array<{ value: string; label: string }>>();
+    for (const city of catalog?.cities ?? []) {
+      map.set(city.code, city.districts.map((district) => ({ value: district.code, label: district.name })));
+    }
+    return map;
+  }, [catalog]);
+
   pointsRef.current = value;
   onChangeRef.current = onChange;
 
   useEffect(() => {
-    void adminApi.regions().then(setCatalog).catch(() => setMapError('新疆地区目录加载失败，请刷新后重试'));
+    let active = true;
+    void adminApi.regions().then((data) => { if (active) setCatalog(data); }).catch(() => { if (active) setMapError('新疆地区目录加载失败，请刷新后重试'); });
+    return () => { active = false; };
   }, []);
 
   const replace = (next: RoutePointInput[]) => onChange?.(normalizeOrder(next));
@@ -108,7 +124,7 @@ export function RouteMapEditor({ value = [], onChange }: RouteMapEditorProps) {
       });
       mapRef.current = map; markerRef.current = marker; polylineRef.current = polyline;
       setMapError('');
-    }).catch((error: unknown) => setMapError(error instanceof Error ? error.message : '地图加载失败'));
+    }).catch((error: unknown) => { if (active) setMapError(error instanceof Error ? error.message : '地图加载失败'); });
     return () => { active = false; markerRef.current?.setMap?.(null); polylineRef.current?.setMap?.(null); mapRef.current?.destroy?.(); mapRef.current = undefined; };
   }, [key]);
 
@@ -141,8 +157,8 @@ export function RouteMapEditor({ value = [], onChange }: RouteMapEditorProps) {
         <Select value={point.type} options={typeOptions} onChange={(type) => update(index, { type })} />
         <InputNumber value={Number(point.latitude)} min={-90} max={90} precision={7} placeholder="纬度" onChange={(latitude) => latitude != null && update(index, { latitude })} />
         <InputNumber value={Number(point.longitude)} min={-180} max={180} precision={7} placeholder="经度" onChange={(longitude) => longitude != null && update(index, { longitude })} />
-        <Select status={point.city_code ? undefined : 'error'} value={point.city_code ?? undefined} showSearch optionFilterProp="label" placeholder="所属城市（必选）" options={catalog?.cities.map((city) => ({ value: city.code, label: city.name }))} onChange={(city_code) => update(index, { province_code: '650000', city_code, district_code: undefined })} />
-        <Select allowClear value={point.district_code ?? undefined} showSearch optionFilterProp="label" placeholder="区县（选填）" options={catalog?.cities.find((city) => city.code === point.city_code)?.districts.map((district) => ({ value: district.code, label: district.name }))} onChange={(district_code) => update(index, { district_code })} />
+        <Select status={point.city_code ? undefined : 'error'} value={point.city_code ?? undefined} showSearch optionFilterProp="label" placeholder="所属城市（必选）" options={cityOptions} onChange={(city_code) => update(index, { province_code: '650000', city_code, district_code: undefined })} />
+        <Select allowClear value={point.district_code ?? undefined} showSearch optionFilterProp="label" placeholder="区县（选填）" options={districtOptionsByCity.get(point.city_code ?? '')} onChange={(district_code) => update(index, { district_code })} />
         <Input value={point.address ?? point.description ?? ''} maxLength={300} placeholder="地址 / 说明" onChange={(event) => update(index, { address: event.target.value, description: event.target.value })} />
         <Button icon={<ArrowUpOutlined />} disabled={index === 0} onClick={() => move(index, -1)} />
         <Button icon={<ArrowDownOutlined />} disabled={index === value.length - 1} onClick={() => move(index, 1)} />
