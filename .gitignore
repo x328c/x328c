@@ -17,3 +17,9 @@ Thumbs.db
 .cache/
 .temp/
 .cloudbase/
+
+# WorkBuddy 智能体工作区（记忆与笔记，不属于项目代码）
+.workbuddy/
+
+# 本地发布包产物（内容与对应 commit 重复，避免二进制入库）
+releases/
