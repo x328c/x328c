@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    *{box-sizing:border-box}html,body{margin:0;width:1080px;height:1920px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;color:#fff}
+    body{background:#07101f url('./guide-bg.png') center/cover no-repeat}.poster{position:relative;width:1080px;height:1920px;padding:70px 64px}
+    .eyebrow{font-size:24px;font-weight:700;letter-spacing:5px;color:#ff9a57}.title{font-size:78px;line-height:1.05;font-weight:900;margin-top:18px;letter-spacing:2px}.title em{font-style:normal;color:#ff6a13}
+    .sub{margin-top:20px;color:#c8cfda;font-size:25px}.guide{position:absolute;left:64px;top:420px;width:310px;display:flex;flex-direction:column;gap:28px}
+    .step{position:relative;padding:28px 26px 28px 76px;border:2px solid rgba(232,116,42,.75);border-radius:26px;background:rgba(17,29,50,.88);box-shadow:0 18px 42px rgba(0,0,0,.3)}
+    .num{position:absolute;left:20px;top:24px;width:42px;height:42px;border-radius:50%;background:#e8742a;display:grid;place-items:center;font-size:25px;font-weight:900}.step b{display:block;color:#ff8a43;font-size:25px;margin-bottom:10px}.step span{font-size:25px;line-height:1.45;font-weight:700}
+    .phone{position:absolute;left:405px;top:305px;width:610px;height:1314px;border:10px solid #20232a;border-radius:66px;overflow:hidden;background:#fff;box-shadow:0 35px 80px rgba(0,0,0,.55),0 0 0 2px #747982}.phone>img{width:100%;height:100%;object-fit:cover;display:block}
+    .ring{position:absolute;border:7px solid #ff6a13;border-radius:999px;box-shadow:0 0 0 8px rgba(255,106,19,.18),0 0 26px rgba(255,106,19,.5)}.arrow{position:absolute;height:6px;background:#ff6a13;transform-origin:left center}.arrow:after{content:"";position:absolute;right:-2px;top:-9px;border-left:18px solid #ff6a13;border-top:12px solid transparent;border-bottom:12px solid transparent}
+    .ride-card{position:absolute;left:47px;right:47px;top:365px;padding:27px 25px;border-radius:24px;background:#fff;color:#1f2430;box-shadow:0 8px 28px rgba(0,0,0,.13);border:1px solid #eceef2}.ride-card h3{margin:0 0 13px;font-size:27px}.ride-meta{font-size:20px;color:#737987;line-height:1.7}.join{position:absolute;right:22px;top:43px;padding:10px 24px;border:2px solid #e8742a;border-radius:22px;color:#e8742a;font-size:21px;font-weight:800;background:#fff}.ride-bottom{margin-top:15px;padding-top:14px;border-top:1px solid #eceef2;font-size:20px;color:#565c68;display:flex;justify-content:space-between}
+    .inset{position:absolute;right:38px;bottom:105px;width:320px;height:625px;border:7px solid #e8742a;border-radius:38px;overflow:hidden;background:#fff;box-shadow:0 25px 55px rgba(0,0,0,.55)}.inset img{width:100%;height:100%;object-fit:cover}.inset-label{position:absolute;right:54px;bottom:748px;background:#e8742a;padding:11px 19px;border-radius:18px;font-size:21px;font-weight:800}
+    .footer{position:absolute;left:64px;right:64px;bottom:58px;border-top:1px solid rgba(255,255,255,.2);padding-top:25px;display:flex;align-items:flex-end;justify-content:space-between}.slogan{font-size:31px;font-weight:800;max-width:690px}.brand{font-size:28px;font-weight:900;color:#fff}.brand:before{content:"M";display:inline-grid;place-items:center;width:45px;height:45px;margin-right:13px;border-radius:13px;background:#e8742a;color:#fff}
+    .actual-note{position:absolute;right:70px;top:270px;font-size:18px;color:#cbd1db;background:rgba(9,16,29,.72);padding:8px 13px;border-radius:14px}.safety .phone{left:430px;width:575px}.safety .guide{top:500px}.profile .phone{left:420px;width:580px}.profile .guide{top:500px}.route .phone{left:410px;width:600px}.route .guide{top:430px}
+  </style>
+</head>
+<body><main class="poster" id="poster"></main>
+<script>
+const data={
+  1:{cls:'ride',title:'同行<em>发现</em>',sub:'浏览附近同行 · 报名参与 · 发起组队',img:'01-同行首页.jpg',steps:['浏览附近同行','点击报名或发起同行','与摩友组队出发'],slogan:'发现身边的摩友，让每一次出发都不孤单'},
+  2:{cls:'route',title:'路线<em>录入与发现</em>',sub:'官方路线与骑友路线，在同一页面发现',img:'02-路线页面.jpg',inset:'02b-路线录入-final.jpg',insetLabel:'实际路线录入页',steps:['记录你的骑行轨迹','选择「仅自己可见」或「发布平台」','分享给摩友或私藏专属路线'],slogan:'每一条路线，都是一次冒险的记忆'},
+  3:{cls:'safety',title:'骑行<em>安全手册</em>',sub:'官方信息索引与骑行安全知识',img:'03-安全手册-v2.jpg',steps:['浏览或搜索安全知识','点击查看详细内容'],slogan:'安全骑行，从了解规则开始'},
+  4:{cls:'profile',title:'个人<em>中心</em>',sub:'管理资料、同行、路线与隐私设置',img:'04-个人中心.jpg',inset:'04b-设置-final.jpg',insetLabel:'实际隐私与个人信息页',steps:['管理你的骑行资料','进入「设置」控制个人信息可见范围'],slogan:'掌控你的骑行身份，安全分享每一程'}
+};
+const id=new URLSearchParams(location.search).get('id')||'1',d=data[id],p=document.querySelector('#poster');p.className='poster '+d.cls;
+p.innerHTML=`<div class="eyebrow">摩搭子助手 · 功能指引</div><div class="title">${d.title}</div><div class="sub">${d.sub}</div><div class="actual-note">基于小程序实际界面</div><section class="guide">${d.steps.map((s,i)=>`<div class="step"><i class="num">${i+1}</i><b>第 ${i+1} 步</b><span>${s}</span></div>`).join('')}</section><section class="phone"><img src="${d.img}">${id==='1'?`<div class="ride-card"><h3>南山轻骑同行</h3><div class="ride-meta">集合地点：乌鲁木齐南山入口<br>今天 18:30 出发</div><button class="join">报名</button><div class="ride-bottom"><span>3 / 6 人</span><span>距你 5.2 km</span></div></div>`:''}</section>${d.inset?`<div class="inset-label">${d.insetLabel}</div><aside class="inset"><img src="${d.inset}"></aside>`:''}<footer class="footer"><div class="slogan">${d.slogan}</div><div class="brand">摩搭子助手</div></footer>`;
+if(id==='1'){p.insertAdjacentHTML('beforeend','<div class="ring" style="left:837px;top:687px;width:115px;height:70px"></div><div class="ring" style="left:819px;top:1260px;width:115px;height:115px"></div>')}
+if(id==='2'){p.insertAdjacentHTML('beforeend','<div class="ring" style="left:511px;top:432px;width:176px;height:67px"></div>')}
+if(id==='3'){p.insertAdjacentHTML('beforeend','<div class="ring" style="left:451px;top:690px;width:535px;height:225px;border-radius:34px"></div>')}
+if(id==='4'){p.insertAdjacentHTML('beforeend','<div class="ring" style="left:443px;top:947px;width:533px;height:84px;border-radius:24px"></div>')}
+</script></body></html>
