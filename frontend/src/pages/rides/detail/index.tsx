@@ -9,6 +9,7 @@ import { useUserStore } from "@/stores/user-store";
 import type { RideDetail, RideParticipant } from "@/types/api";
 import { formatCountdown, formatDateTime } from "@/utils/format";
 import "./index.scss";
+import { ensureProfileComplete } from "@/utils/profile-completeness";
 
 function Avatar({ src, name }: { src?: string | null; name: string }) {
   return src ? <Image className="ride-detail__avatar" src={src} /> : <View className="ride-detail__avatar ride-detail__avatar--placeholder">{name.slice(0, 1)}</View>;
@@ -56,7 +57,7 @@ export default function RideDetailPage() {
   });
   useEffect(() => { useUserStore.getState().hydrate(); }, []);
   useShareAppMessage(() => ({
-    title: ride?.title ?? "同行详情",
+    title: ride ? `${ride.title}｜${formatDateTime(ride.departure_time)}｜${ride.join_count}/${ride.max_people}人` : "同行详情",
     path: `/pages/rides/detail/index?id=${ride?.id ?? ""}&source=share`,
     imageUrl: ride?.creator.avatar_url ?? "",
   }));
@@ -67,14 +68,13 @@ export default function RideDetailPage() {
   const canJoin = (ride.status === 1 || ride.status === 2) && !ride.is_full;
   const isCreator = useUserStore.getState().user?.id === ride.creator.id;
   const canManage = isCreator && (ride.status === 1 || ride.status === 2);
-  const actionText = isCreator && (ride.status === 1 || ride.status === 2) ? "管理同行" : joined ? "已报名" : ride.is_full ? "名额已满" : ride.status === 1 || ride.status === 2 ? "立即报名" : ride.status === 3 ? "同行进行中" : ride.status === 4 ? "同行已结束" : "同行已取消";
-  const actionClass = joined
-    ? "ride-detail__join ride-detail__join--disabled"
-    : canJoin || canManage
+  const canFinish = isCreator && ride.status === 3;
+  const actionText = canManage ? "管理同行" : canFinish ? "结束同行" : ride.status === 3 ? "同行进行中" : ride.status === 4 ? "同行已结束" : ride.status === 0 ? "同行已取消" : joined ? "已报名" : ride.is_full ? "名额已满" : "立即报名";
+  const actionClass = canManage || canFinish
       ? "ride-detail__join"
-      : ride.status === 3
-        ? "ride-detail__join ride-detail__join--running"
-        : "ride-detail__join ride-detail__join--disabled";
+    : ride.status === 3
+      ? "ride-detail__join ride-detail__join--running"
+      : "ride-detail__join ride-detail__join--disabled";
   const percentage = Math.min(100, Math.round((ride.join_count / ride.max_people) * 100));
   const description = ride.description || "发起人暂未填写同行说明。";
 
@@ -82,6 +82,7 @@ export default function RideDetailPage() {
     if (!ride.meetup_lat || !ride.meetup_lng) return Taro.showToast({ title: "暂未提供坐标", icon: "none" });
     void Taro.openLocation({ latitude: Number(ride.meetup_lat), longitude: Number(ride.meetup_lng), name: ride.meetup_address, address: ride.meetup_address, scale: 16 });
   };
+  const openPoint = (point: RideDetail["points"][number]) => { void Taro.openLocation({ latitude: Number(point.latitude), longitude: Number(point.longitude), name: point.name, address: point.address || point.name, scale: 16 }); };
   const contact = () => {
     const wechat = ride.creator.wechat_id;
     if (!wechat) return Taro.showToast({ title: "发起人暂未公开微信号", icon: "none" });
@@ -94,6 +95,7 @@ export default function RideDetailPage() {
   };
   const join = async () => {
     if (!canJoin || joining) return;
+    if (!(await ensureProfileComplete(`/pages/rides/detail/index?id=${ride.id}`))) return;
     setJoining(true);
     try {
       const confirmation = await confirmSafetyAgreement("ride_join", `加入同行：${ride.title}`);
@@ -132,6 +134,10 @@ export default function RideDetailPage() {
       setShowCreatorActions(true);
       return;
     }
+    if (canFinish) {
+      void finishRide();
+      return;
+    }
     if (joined) {
       setShowActions(true);
       return;
@@ -145,6 +151,15 @@ export default function RideDetailPage() {
     setJoining(true);
     try { await rideService.cancel(ride.id); Taro.showToast({ title: "同行已取消", icon: "success" }); await load(ride.id); }
     catch (error) { Taro.showToast({ title: error instanceof Error ? error.message : "取消失败", icon: "none" }); }
+    finally { setJoining(false); }
+  };
+  const finishRide = async () => {
+    if (joining) return;
+    const result = await Taro.showModal({ title: "结束同行", content: "结束后同行将归入历史记录，且无法恢复为进行中。确认结束吗？", confirmText: "确认结束", confirmColor: "#c74700" });
+    if (!result.confirm) return;
+    setJoining(true);
+    try { await rideService.finish(ride.id); Taro.showToast({ title: "同行已结束", icon: "success" }); await load(ride.id); }
+    catch (error) { Taro.showToast({ title: error instanceof Error ? error.message : "结束失败", icon: "none" }); }
     finally { setJoining(false); }
   };
   const transfer = async (participant: RideParticipant) => {
@@ -169,6 +184,7 @@ export default function RideDetailPage() {
       <View className="ride-detail__item"><Text className="ride-detail__icon">⏰</Text><View><Text className="ride-detail__item-label">出发时间</Text><Text className="ride-detail__item-value">{formatDateTime(ride.departure_time)} · {formatCountdown(ride.departure_time)}出发</Text></View></View>
       <View className="ride-detail__item" onClick={openMap}><Text className="ride-detail__icon">⌖</Text><View className="ride-detail__map-copy"><Text className="ride-detail__item-label">集合地点</Text><Text className="ride-detail__item-value">{ride.meetup_address}</Text></View><View className="ride-detail__map">查看地图</View></View>
       <View className="ride-detail__item"><Text className="ride-detail__icon">⌁</Text><View><Text className="ride-detail__item-label">目的地 / 路线</Text><Text className="ride-detail__item-value">{ride.destination || "待发起人补充"}</Text></View></View>
+      {(ride.points ?? []).map((point) => <View key={point.id} className="ride-detail__item" onClick={() => openPoint(point)}><Text className="ride-detail__icon">{point.type === "destination" ? "◎" : "·"}</Text><View className="ride-detail__map-copy"><Text className="ride-detail__item-label">{point.type === "destination" ? "终点" : `途经点 ${point.order + 1}`}</Text><Text className="ride-detail__item-value">{point.name}</Text></View><View className="ride-detail__map">查看地图</View></View>)}
       <View className="ride-detail__people"><View className="ride-detail__people-title"><Text>报名进度</Text><Text>{ride.join_count}人 / 最多{ride.max_people}人</Text></View><Progress percent={percentage} strokeWidth={8} activeColor="#237804" backgroundColor="#e5ece7" /></View>
     </View>
 

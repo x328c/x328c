@@ -2,6 +2,7 @@ export * from "./ConfirmDialog";
 export * from "./Empty";
 export * from "./RideCard";
 export * from "./RideFilterSheet";
+export * from "./RegionConfirmSheet";
 export * from "./Skeleton";
 export * from "./SourceBlock";
 export * from "./StatePanel";

@@ -1,0 +1,10 @@
+@use "../../../styles/tokens" as *;
+.region-select { min-height: 100vh; background: $color-bg; }
+.region-select__current { display: flex; justify-content: space-between; padding: $space-4; background: linear-gradient(135deg, #fff3e8, #fff); color: $color-text; font-size: 26px; font-weight: 600; }
+.region-select__columns { display: flex; height: 72vh; background: #fff; }
+.region-select__cities { width: 42%; height: 100%; background: #f5f6f8; }
+.region-select__districts { width: 58%; height: 100%; }
+.region-select__city, .region-select__district { padding: 28px 24px; color: $color-text-secondary; font-size: 27px; }
+.region-select__city--active { border-left: 6px solid $color-brand; background: #fff; color: $color-brand-strong; font-weight: 650; }
+.region-select__district--active { color: $color-brand-strong; font-weight: 650; }
+.region-select__hint { display: block; padding: $space-4; color: $color-text-secondary; font-size: 23px; line-height: 1.65; }

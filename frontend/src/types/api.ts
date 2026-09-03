@@ -11,6 +11,8 @@ export interface CurrentUser {
   avatar_url?: string | null;
   role: number;
   profile?: { motorcycle_model?: string | null } | null;
+  profile_complete?: boolean;
+  missing_profile_fields?: string[];
 }
 export interface AuthTokens {
   access_token: string;
@@ -40,6 +42,12 @@ export interface RideSummary {
   is_full: boolean;
   status: number;
   city_code: string;
+  district_code?: string | null;
+  region_match?: "start" | "through" | null;
+  destination_lat?: string | null;
+  destination_lng?: string | null;
+  points: RidePointLocation[];
+  route_snapshot?: Record<string, unknown> | null;
   distance?: number | null;
   creator: RideCreator;
   participant_avatars: string[];
@@ -54,6 +62,9 @@ export interface RideDetail extends RideSummary {
   speed_level?: number | null;
   view_count: number;
 }
+
+export interface RideLocationInput { name: string; address?: string; latitude: number; longitude: number; province_code?: string; city_code?: string; district_code?: string }
+export interface RidePointLocation extends RideLocationInput { id: string; order: number; type: "waypoint" | "destination"; source: string }
 
 export interface Pagination {
   page: number;
@@ -88,6 +99,8 @@ export interface CreateRidePayload {
   meetup_lat: number;
   meetup_lng: number;
   destination?: string;
+  destination_point?: RideLocationInput;
+  waypoints?: RideLocationInput[];
   min_people: number;
   max_people: number;
   speed_level: number;
@@ -95,11 +108,14 @@ export interface CreateRidePayload {
   description?: string;
   rules?: Record<string, unknown>;
   city_code: string;
+  district_code?: string;
   route_id?: string;
   user_route_id?: string;
   route_link_source?: "route_detail" | "create_form";
+  route_customized?: boolean;
   agreement?: AgreementProof;
 }
+export interface RideRelaunchTemplate extends Omit<CreateRidePayload, "departure_time" | "agreement"> { source_ride_id: string; departure_time: null }
 
 export interface AgreementProof { id: string; version: string; content_hash: string }
 export interface SafetyAgreement extends AgreementProof {
@@ -123,13 +139,18 @@ export interface RouteSummary {
   city_code?: string | null; city_name?: string | null; type?: RouteType | null;
   difficulty?: RouteDifficulty | null; distance_km?: string | null; duration_min?: number | null;
   favorite_count: number; is_favorited: boolean; updated_at: string;
+  region_match?: "start" | "through" | null;
 }
 export interface RoutePoint {
   id: string; order: number; name: string; latitude: string; longitude: string;
-  type: "start" | "waypoint" | "end"; description?: string | null;
+  type: "start" | "waypoint" | "end"; description?: string | null; address?: string | null;
+  province_code?: string | null; city_code?: string | null; district_code?: string | null;
 }
 export interface RouteDetail extends RouteSummary {
   images: string[]; polyline: Array<{ latitude: number; longitude: number }>;
+  polyline_status?: number; polyline_provider?: string | null; polyline_updated_at?: string | null;
+  district_code?: string | null; external_route_url?: string | null;
+  external_route_provider?: string | null; external_url_status?: number;
   road_condition?: string | null; suitable_motorcycles?: string | null; best_season?: string | null;
   safety_notice?: string | null; published_at?: string | null; points: RoutePoint[];
 }
@@ -141,21 +162,30 @@ export interface RouteComment {
   created_at: string; author: { id: string; nickname: string; avatar_url?: string | null };
 }
 export interface CursorResult<T> { items: T[]; nextCursor: string | null; hasMore: boolean }
-export interface UserRouteWaypoint { name: string; latitude: number; longitude: number }
+export interface UserRouteWaypoint { name: string; latitude: number; longitude: number; address?: string; province_code?: string; city_code?: string; district_code?: string }
 export interface UserRoute {
   id: string; user_id: string; title: string; description?: string | null;
   start_location: string; start_lat: number; start_lng: number; end_location?: string | null;
   end_lat?: number | null; end_lng?: number | null; waypoints: UserRouteWaypoint[];
+  end_point?: UserRouteWaypoint | null;
+  city_code?: string | null; district_code?: string | null;
+  polyline: Array<{ latitude: number; longitude: number }>;
+  polyline_status?: number; polyline_provider?: string | null;
+  external_route_url?: string | null; external_route_provider?: string | null; external_url_status?: number;
   total_distance?: number | null; estimated_time?: number | null; difficulty?: number | null;
   images: string[]; visibility: 1 | 2; view_count: number; favorite_count: number;
   created_at: string; updated_at: string; is_owner: boolean; is_favorited: boolean;
+  region_match?: "start" | "through" | null;
   creator: { id: string; nickname: string; avatar_url?: string | null };
 }
 export interface UserRoutePayload {
   title: string; description?: string; start_location: string; start_lat: number; start_lng: number;
   end_location?: string; end_lat?: number; end_lng?: number; waypoints?: UserRouteWaypoint[];
+  end_point?: UserRouteWaypoint;
+  city_code?: string; district_code?: string; external_route_url?: string;
   total_distance?: number; estimated_time?: number; difficulty?: number; images?: string[]; visibility: 1 | 2;
 }
+export interface ShareMetadata { title: string; path: string; imageUrl: string }
 export interface SafetyGuide {
   code: string; title: string; summary: string; version: string; content: Record<string, unknown>;
   contentHash: string; publishedAt?: string | null; lastVerifiedAt?: string | null; stale: boolean;

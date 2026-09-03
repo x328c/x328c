@@ -1,6 +1,6 @@
 import { Button, Text, View } from "@tarojs/components";
 import Taro, { useDidShow } from "@tarojs/taro";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { loginWithWechat } from "@/services/auth";
 import { useUserStore } from "@/stores/user-store";
 import { redirectAfterLogin } from "@/utils/login-return";
@@ -10,6 +10,7 @@ import "./index.scss";
 /** 独立授权页：退出后只会显示此页，绝不渲染旧用户资料。 */
 export default function AuthPage() {
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [accepted, setAccepted] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(true);
 
@@ -21,11 +22,12 @@ export default function AuthPage() {
   });
 
   const handleLogin = async () => {
-    if (submitting) return;
+    if (submittingRef.current) return;
     if (!accepted) {
       Taro.showToast({ title: "请先阅读并勾选协议与安全须知", icon: "none" });
       return;
     }
+    submittingRef.current = true;
     setSubmitting(true);
     try {
       const { isNewUser } = await loginWithWechat(LEGAL_CONSENT);
@@ -40,6 +42,7 @@ export default function AuthPage() {
         icon: "none",
       });
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };

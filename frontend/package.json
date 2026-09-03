@@ -13,6 +13,7 @@
     "prepare": "husky",
     "new": "taro new",
     "build:weapp": "node scripts/build-weapp.mjs 4 production",
+    "build:weapp:device": "node scripts/build-weapp.mjs 4 device",
     "build:weapp:4tab": "node scripts/build-weapp.mjs 4 production",
     "build:weapp:test": "node scripts/build-weapp.mjs 4 test",
     "build:weapp:test:4tab": "node scripts/build-weapp.mjs 4 test",
@@ -28,6 +29,7 @@
     "dev:weapp": "npm run dev:weapp:cloud",
     "dev:weapp:cloud": "taro build --type weapp --watch --mode cloud",
     "dev:weapp:local": "taro build --type weapp --watch --mode development",
+    "dev:weapp:device": "taro build --type weapp --watch --mode device",
     "dev:weapp:test": "taro build --type weapp --watch --mode test",
     "dev:swan": "npm run build:swan -- --watch",
     "dev:alipay": "npm run build:alipay -- --watch",
@@ -37,7 +39,11 @@
     "dev:qq": "npm run build:qq -- --watch",
     "dev:jd": "npm run build:jd -- --watch",
     "dev:harmony-hybrid": "npm run build:harmony-hybrid -- --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:poi-region": "node --test scripts/test-poi-region.mjs",
+    "test:route-feed": "node --test scripts/test-route-feed.mjs",
+    "test:request": "node --test scripts/test-request.mjs",
+    "test:maintenance": "node --test scripts/test-frontend-maintenance.mjs"
   },
   "browserslist": [
     "defaults and fully supports es6-module",

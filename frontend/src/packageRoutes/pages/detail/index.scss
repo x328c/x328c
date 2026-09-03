@@ -9,11 +9,16 @@
 .route-detail__label { display: block; margin-top: $space-3; color: $color-text; font-size: 25px; font-weight: 600; }
 .route-detail__map { width: 100%; height: 380px; border-radius: $radius-md; }
 .route-detail__map-fallback { padding: $space-4; border-radius: $radius-md; background: #f2f3f5; color: $color-text-secondary; font-size: 24px; text-align: center; }
+.route-detail__map-note { display: block; margin-top: $space-2; color: $color-text-secondary; font-size: 22px; line-height: 1.55; }
+.route-detail__nav-actions { display: flex; gap: $space-2; margin: $space-3 0 $space-1; }
+.route-detail__nav-actions > view { flex: 1; padding: $space-3 $space-2; border: 2px solid #e8742a; border-radius: $radius-md; color: #c95412; font-size: 26px; font-weight: 600; text-align: center; background: #fff8f2; }
 .route-detail__points { margin-top: $space-3; }
-.route-detail__point { display: flex; gap: $space-3; padding: $space-2 0; border-bottom: 1px solid $color-border; }
+.route-detail__point { display: flex; align-items: center; gap: $space-3; padding: $space-2 0; border-bottom: 1px solid $color-border; }
 .route-detail__point-order { display: grid; width: 42px; height: 42px; flex: 0 0 42px; place-items: center; border-radius: 50%; background: $color-brand-soft; color: $color-brand-strong; }
+.route-detail__point-copy { min-width: 0; flex: 1; }
 .route-detail__point-name { display: block; color: $color-text; font-size: 26px; }
 .route-detail__point-meta, .route-detail__ride-meta { display: block; margin-top: 4px; color: $color-text-secondary; font-size: 22px; }
+.route-detail__point-map { flex: 0 0 auto; padding: 12px 16px; border-radius: 12px; background: #fff1e8; color: #c74700; font-size: 22px; }
 .route-detail__safety { margin: 0 $space-4 $space-3; padding: $space-4; border: 1px solid #f6c453; border-radius: $radius-md; background: #fff8e6; color: #7a4b00; font-size: 25px; line-height: 1.6; }
 .route-detail__ride { display: flex; align-items: center; justify-content: space-between; padding: $space-3 0; border-bottom: 1px solid $color-border; }
 .route-detail__ride-title { color: $color-text; font-size: 26px; font-weight: 600; }

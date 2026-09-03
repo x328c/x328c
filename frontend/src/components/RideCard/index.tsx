@@ -26,7 +26,7 @@ export function RideCard({
       <Text className="ride-card__line">
         ⏰ {formatCountdown(ride.departure_time)}
       </Text>
-      <Text className="ride-card__line">⌖ {ride.meetup_address}</Text>
+      <Text className="ride-card__line">⌖ {ride.meetup_address}{ride.region_match === "through" ? " · 途经本地" : ""}</Text>
       <View className="ride-card__foot">
         {ride.creator.avatar_url ? (
           <Image className="ride-card__avatar" src={ride.creator.avatar_url} />

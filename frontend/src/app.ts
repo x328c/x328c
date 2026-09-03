@@ -1,28 +1,11 @@
-import { useEffect, type PropsWithChildren } from "react";
-import Taro, { useLaunch } from "@tarojs/taro";
-import { notificationService } from "@/services/notifications";
-import { useNotificationStore } from "@/stores/notification-store";
+import { type PropsWithChildren } from "react";
+import Taro, { useDidShow, useLaunch } from "@tarojs/taro";
+import { refreshUnreadCount } from "@/services/notification-refresh";
 import { useUserStore } from "@/stores/user-store";
 
 import "./app.scss";
 
 function App({ children }: PropsWithChildren) {
-  const unreadCount = useNotificationStore((state) => state.unreadCount);
-
-  useEffect(() => {
-    const syncBadge = async () => {
-      if (unreadCount > 0) {
-        await Taro.setTabBarBadge({
-          index: __MESSAGE_TAB_INDEX__,
-          text: String(unreadCount > 99 ? "99+" : unreadCount),
-        });
-      } else {
-        await Taro.removeTabBarBadge({ index: __MESSAGE_TAB_INDEX__ });
-      }
-    };
-    void syncBadge().catch(() => undefined);
-  }, [unreadCount]);
-
   useLaunch((options) => {
     useUserStore.getState().hydrate();
     if (!useUserStore.getState().isLoggedIn) {
@@ -30,9 +13,10 @@ function App({ children }: PropsWithChildren) {
       void Taro.reLaunch({ url: "/pages/auth/index" });
       return;
     }
-    void notificationService.unreadCount().then(({ count }) => {
-      useNotificationStore.getState().setUnreadCount(count);
-    }).catch(() => undefined);
+  });
+
+  useDidShow(() => {
+    void refreshUnreadCount();
   });
 
   return children;

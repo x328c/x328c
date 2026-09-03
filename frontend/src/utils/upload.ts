@@ -29,7 +29,7 @@ export async function uploadImage(
   category: "rides" | "avatars" | "route-comments" | "user-routes" = "rides",
 ): Promise<string> {
   const [fileInfo, fileType] = await Promise.all([
-    Taro.getFileInfo({ filePath }),
+    readLocalFileInfo(filePath),
     resolveImageMimeType(filePath, fallbackType),
   ]);
   if (!("size" in fileInfo)) throw new Error("无法读取图片文件信息");
@@ -77,6 +77,23 @@ export async function uploadImage(
     },
   });
   return callback.cdn_url;
+}
+
+/** FileSystemManager is callback-based; do not await its void return value. */
+function readLocalFileInfo(filePath: string): Promise<{ size: number }> {
+  return new Promise((resolve, reject) => {
+    Taro.getFileSystemManager().getFileInfo({
+      filePath,
+      success: (info) => {
+        if (!Number.isFinite(info.size) || info.size < 0) {
+          reject(new Error("无法读取图片文件信息"));
+          return;
+        }
+        resolve({ size: info.size });
+      },
+      fail: () => reject(new Error("无法读取图片文件信息")),
+    });
+  });
 }
 
 /** 真机选择图片时不能假定格式为 JPEG；后端仅接受 jpg/png/webp。 */

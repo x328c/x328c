@@ -34,6 +34,8 @@ export default defineAppConfig({
     "pages/routes/mine/index",
     "pages/routes/detail/index",
     "pages/routes/square/index",
+    "pages/regions/select/index",
+    "pages/map/select/index",
     "pages/rides/create/index",
     "pages/rides/detail/index",
     "pages/rides/participants/index",
@@ -66,7 +68,7 @@ export default defineAppConfig({
   },
   permission: {
     "scope.userLocation": {
-      desc: "用于根据您与同行集合地点的距离进行排序和筛选",
+      desc: "用于地图选择同行和路线地点，以及按集合地点距离排序和筛选",
     },
   },
   requiredPrivateInfos: ["getLocation", "chooseLocation"],

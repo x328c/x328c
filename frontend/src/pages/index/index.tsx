@@ -1,19 +1,20 @@
 import { Text, View } from "@tarojs/components";
-import Taro, { useLoad, usePullDownRefresh, useReachBottom } from "@tarojs/taro";
+import Taro, { useDidShow, usePullDownRefresh, useReachBottom } from "@tarojs/taro";
 import { useRef, useState } from "react";
 import { Empty, RideCard, RideFilterSheet, Skeleton } from "@/components";
 import { DEFAULT_RIDE_FILTERS, type RideFilters } from "@/components/RideFilterSheet";
 import { rideService } from "@/services/rides";
 import { useRideListStore } from "@/stores/ride-store";
+import { useRegionStore, type SelectedRegion } from "@/stores/region-store";
 import "./index.scss";
 
-const CITY = { name: "乌鲁木齐", code: "650100" };
 const PAGE_SIZE = 20;
 
 export default function Index() {
   const { rides, pagination, loading, replace, append, setLoading } = useRideListStore();
   const [filters, setFilters] = useState<RideFilters>(DEFAULT_RIDE_FILTERS);
   const [filterVisible, setFilterVisible] = useState(false);
+  const { selected, hydrate } = useRegionStore();
   const currentLocation = useRef<{ latitude: number; longitude: number }>();
   const locationAttempted = useRef(false);
 
@@ -56,6 +57,7 @@ export default function Index() {
     refresh = false,
     nextFilters = filters,
     location?: typeof currentLocation.current,
+    region: SelectedRegion = useRegionStore.getState().selected,
   ) => {
     if (loading && !refresh) return;
     setLoading(true);
@@ -64,7 +66,8 @@ export default function Index() {
       const data = await rideService.list({
         page,
         pageSize: PAGE_SIZE,
-        city_code: CITY.code,
+        city_code: region.city_code,
+        district_code: region.district_code,
         radius: nextFilters.radius,
         ride_style: nextFilters.ride_style,
         latitude: resolvedLocation?.latitude,
@@ -81,9 +84,7 @@ export default function Index() {
     }
   };
 
-  useLoad(() => {
-    void loadRides();
-  });
+  useDidShow(() => { void (async () => { await hydrate(); await loadRides(1, true, filters, undefined, useRegionStore.getState().selected); })(); });
 
   usePullDownRefresh(() => {
     void loadRides(1, true);
@@ -97,9 +98,9 @@ export default function Index() {
   return (
     <View className="ride-square">
       <View className="ride-square__toolbar">
-        <View className="ride-square__city" onClick={() => Taro.showToast({ title: "城市定位即将开放", icon: "none" })}>
+        <View className="ride-square__city" onClick={() => Taro.navigateTo({ url: "/pages/regions/select/index" })}>
           <Text className="ride-square__pin">⌖</Text>
-          <Text>{CITY.name}</Text>
+          <Text>{selected.district_name ?? selected.city_name}</Text>
           <Text className="ride-square__arrow">⌄</Text>
         </View>
         <View className="ride-square__actions"><View className="ride-square__regulations" onClick={() => Taro.navigateTo({ url: "/packageRegulations/pages/index/index" })}>骑行安全手册</View><View className="ride-square__filter" onClick={() => setFilterVisible(true)}>筛选</View></View>

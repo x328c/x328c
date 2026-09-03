@@ -2,34 +2,19 @@ import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveBuildTarget } from './weapp-build-target.mjs';
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const tabVariant = process.argv[2] ?? "4";
 const mode = process.argv[3] ?? "production";
-const defaultProductionApiBase = "https://jiangxingjc.cn/api/v1";
 
 if (tabVariant !== "4") {
   throw new Error(`V2.2 仅支持 4 Tab 构建，当前为：${tabVariant}`);
 }
 
-if (!new Set(["development", "test", "production"]).has(mode)) {
-  throw new Error(`不支持的构建模式：${mode}`);
-}
-
-const productionApiBase =
-  process.env.TARO_APP_API_BASE ?? defaultProductionApiBase;
-
-if (mode === "production") {
-  const apiUrl = new URL(productionApiBase);
-  const isLocalHost = ["localhost", "127.0.0.1", "::1"].includes(apiUrl.hostname);
-  const isIpAddress = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(apiUrl.hostname);
-
-  if (apiUrl.protocol !== "https:" || isLocalHost || isIpAddress) {
-    throw new Error(
-      `生产 API 地址必须使用已备案域名的 HTTPS 地址，当前为：${productionApiBase}`,
-    );
-  }
-}
+const deviceEnvPath = join(projectRoot, '.env.device');
+const targetEnv = resolveBuildTarget(mode, process.env.TARO_APP_API_BASE,
+  mode === 'device' && existsSync(deviceEnvPath) ? readFileSync(deviceEnvPath, 'utf8') : '');
 
 const taroBin = join(
   projectRoot,
@@ -47,12 +32,7 @@ const result = spawnSync(taroBin, ["build", "--type", "weapp", "--mode", mode, "
   env: {
     ...process.env,
     TARO_APP_TAB_VARIANT: tabVariant,
-    ...(mode === "production"
-      ? {
-          TARO_APP_API_BASE: productionApiBase,
-          TARO_APP_ENV: "production",
-        }
-      : {}),
+    ...targetEnv,
   },
   stdio: "inherit",
 });
@@ -95,3 +75,9 @@ for (const item of tabItems) {
 }
 
 console.log(`V2.2 构建校验通过：4 Tab / 按需注入 / 压缩 / 无活动论坛路由 / ${mode}`);
+if (targetEnv.TARO_APP_API_BASE) {
+  const common = readFileSync(join(projectRoot, 'dist', 'common.js'), 'utf8');
+  if (!common.includes(targetEnv.TARO_APP_API_BASE))
+    throw new Error('编译产物API与构建目标不一致，请停止其他构建监听后重试');
+  console.log(`已验证编译API：${targetEnv.TARO_APP_API_BASE}`);
+}

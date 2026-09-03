@@ -90,6 +90,16 @@ export default function RouteDetailPage() {
     void Taro.navigateTo({ url: `/pages/rides/create/index?routeId=${route.id}` });
   };
 
+  const openPoint = (point: RouteDetail["points"][number]) => {
+    void Taro.openLocation({ latitude: Number(point.latitude), longitude: Number(point.longitude), name: point.name, address: point.address || point.description || point.name, scale: 16 });
+  };
+
+  const openExternalRoute = async () => {
+    if (!route?.external_route_url) return;
+    await Taro.setClipboardData({ data: route.external_route_url });
+    await Taro.showModal({ title: "路线链接已复制", content: "请打开对应地图应用并粘贴该链接开始导航。", showCancel: false });
+  };
+
   const submitComment = async () => {
     if (!route || commentSaving || commentImageUploading) return;
     if (commentText.trim().length < 2) {
@@ -192,8 +202,10 @@ export default function RouteDetailPage() {
     </View>
     <View className="route-detail__section">
       <Text className="route-detail__heading">地图与点位</Text>
-      {canShowMap && center ? <Map className="route-detail__map" latitude={center.latitude} longitude={center.longitude} scale={10} polyline={[{ points: route.polyline, color: "#FF6A00", width: 5 }]} markers={route.points.map((point) => ({ id: Number(point.order + 1), latitude: Number(point.latitude), longitude: Number(point.longitude), title: point.name, iconPath: "/assets/tabbar/route-selected.png", width: 24, height: 24 }))} onError={() => setMapFailed(true)} /> : <View className="route-detail__map-fallback">地图暂不可用，以下文字点位仍可正常查看</View>}
-      <View className="route-detail__points">{route.points.map((point) => <View key={point.id} className="route-detail__point"><Text className="route-detail__point-order">{point.order + 1}</Text><View><Text className="route-detail__point-name">{point.name}</Text><Text className="route-detail__point-meta">{pointTypeNames[point.type]}{point.description ? ` · ${point.description}` : ""}</Text></View></View>)}</View>
+      {canShowMap && center ? <Map className="route-detail__map" latitude={center.latitude} longitude={center.longitude} scale={10} polyline={[{ points: route.polyline, color: "#FF6A00", width: 5, dottedLine: route.polyline_provider !== "tencent-driving" && route.polyline_provider !== "gps-track" }]} markers={route.points.map((point) => ({ id: Number(point.order + 1), latitude: Number(point.latitude), longitude: Number(point.longitude), title: point.name, iconPath: "/assets/tabbar/route-selected.png", width: 24, height: 24 }))} onError={() => setMapFailed(true)} /> : <View className="route-detail__map-fallback">地图暂不可用，以下文字点位仍可正常查看</View>}
+      {canShowMap && route.polyline_provider !== "tencent-driving" && route.polyline_provider !== "gps-track" ? <Text className="route-detail__map-note">虚线仅按点位顺序连接，不代表实际可通行道路；出发前请在导航软件中复核。</Text> : null}
+      {route.external_route_url ? <View className="route-detail__nav-actions"><View onClick={() => void openExternalRoute()}>打开第三方路线</View></View> : null}
+      <View className="route-detail__points">{route.points.map((point) => <View key={point.id} className="route-detail__point"><Text className="route-detail__point-order">{point.order + 1}</Text><View className="route-detail__point-copy"><Text className="route-detail__point-name">{point.name}</Text><Text className="route-detail__point-meta">{pointTypeNames[point.type]}{point.description ? ` · ${point.description}` : ""}</Text></View><Text className="route-detail__point-map" onClick={() => openPoint(point)}>查看地图</Text></View>)}</View>
     </View>
     <View className="route-detail__section"><Text className="route-detail__heading">路线说明</Text><Text className="route-detail__copy">{route.summary || "暂无路线简介"}</Text><Text className="route-detail__label">路况</Text><Text className="route-detail__copy">{route.road_condition || "暂无"}</Text><Text className="route-detail__label">适合车型 / 季节</Text><Text className="route-detail__copy">{route.suitable_motorcycles || "不限"} · {route.best_season || "请根据实时天气判断"}</Text></View>
     <View className="route-detail__safety"><Text className="route-detail__heading">安全提示</Text><Text>{route.safety_notice}</Text></View>

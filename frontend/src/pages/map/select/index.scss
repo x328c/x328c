@@ -1,0 +1,11 @@
+.coordinate-picker { height: 100vh; display: flex; flex-direction: column; background: #fff; }
+.coordinate-picker__map { position: relative; flex: 1; min-height: 400rpx; }
+.coordinate-picker__crosshair { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); pointer-events: none; font-size: 70rpx; line-height: 1; color: #e8742a; text-shadow: 0 0 4rpx #fff; }
+.coordinate-picker__panel { padding: 24rpx; padding-bottom: calc(24rpx + env(safe-area-inset-bottom)); }
+.coordinate-picker__title, .coordinate-picker__hint { display: block; margin-bottom: 16rpx; }
+.coordinate-picker__title { font-size: 28rpx; font-weight: 600; }
+.coordinate-picker__hint { color: #777; font-size: 24rpx; }
+.coordinate-picker input { padding: 16rpx; background: #f5f6fa; }
+.coordinate-picker__actions { display: flex; gap: 16rpx; margin-top: 20rpx; }
+.coordinate-picker__actions button { flex: 1; font-size: 28rpx; margin: 0; }
+.coordinate-picker__actions button:last-child { background: #e8742a; color: white; }

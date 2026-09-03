@@ -1,12 +1,12 @@
 {
   "libVersion": "3.16.2",
-  "projectname": "疆行机车圈",
+  "projectname": "摩搭子助手",
   "setting": {
     "urlCheck": false,
     "coverView": false,
     "lazyloadPlaceholderEnable": false,
     "skylineRenderEnable": false,
-    "preloadBackgroundData": true,
+    "preloadBackgroundData": false,
     "autoAudits": false,
     "useApiHook": true,
     "showShadowRootInWxmlPanel": false,

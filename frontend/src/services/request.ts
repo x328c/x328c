@@ -10,8 +10,14 @@ import { API_BASE } from "@/config";
 import { useUserStore } from "@/stores/user-store";
 import { ApiEnvelope, AuthTokens } from "@/types/api";
 import { currentPageUrl, openLogin } from "@/utils/login-return";
+import { networkFailureMessage } from "@/utils/request-network";
 
 const REQUEST_TIMEOUT = 10_000;
+
+export interface RequestConfig extends AxiosRequestConfig {
+  skipAuthRefresh?: boolean;
+  skipAuth?: boolean;
+}
 
 export class ApiError extends Error {
   constructor(
@@ -93,7 +99,7 @@ const taroAdapter: AxiosAdapter = async (config) => {
   } catch (error) {
     if (axios.isAxiosError(error)) throw error;
     throw new AxiosError(
-      "网络连接失败，请检查网络后重试",
+      networkFailureMessage(error, resolveUrl(config)),
       AxiosError.ERR_NETWORK,
       config,
     );
@@ -109,7 +115,8 @@ export const http = axios.create({
 
 http.interceptors.request.use((config) => {
   const { accessToken } = useUserStore.getState();
-  if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`;
+  if ((config as RequestConfig).skipAuth) config.headers.delete('Authorization');
+  else if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`;
   return config;
 });
 
@@ -176,7 +183,7 @@ http.interceptors.response.use(
   },
 );
 
-export async function request<T>(config: AxiosRequestConfig): Promise<T> {
+export async function request<T>(config: RequestConfig): Promise<T> {
   try {
     const response = await http.request<T>(config);
     const payload = response.data as ApiEnvelope<T>;

@@ -30,6 +30,9 @@ export async function loginWithWechat(
   const result = await request<LoginResult>({
     method: "POST",
     url: `${API_BASE}/auth/wx-login`,
+    // A rejected single-use WeChat code must not replay via token refresh.
+    skipAuth: true,
+    skipAuthRefresh: true,
     data: {
       code: login.code,
       legal_consent: legalConsent,

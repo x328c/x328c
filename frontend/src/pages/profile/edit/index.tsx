@@ -23,6 +23,8 @@ const initialForm = {
 export default function EditProfile() {
   const [form, setForm] = useState(initialForm);
   const [onboarding, setOnboarding] = useState(false);
+  const [required, setRequired] = useState(false);
+  const [hasPhone, setHasPhone] = useState(false);
   const [saving, setSaving] = useState(false);
   const update = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
     setForm((current) => ({ ...current, [key]: value }));
@@ -31,13 +33,14 @@ export default function EditProfile() {
   useLoad((options) => {
     const isOnboarding = options.onboarding === "1";
     setOnboarding(isOnboarding);
+    setRequired(options.required === "1");
     if (isOnboarding) {
       void Taro.setNavigationBarTitle({ title: "完善首次登录资料" });
     }
     void userService
       .profile()
       .then((profile) =>
-        setForm({
+        { setHasPhone(Boolean(profile.phone)); setForm({
           avatar: profile.avatar_url || "",
           nickname: isOnboarding && profile.nickname === "新骑友" ? "" : profile.nickname,
           bike: profile.profile?.motorcycle_model || "",
@@ -47,7 +50,7 @@ export default function EditProfile() {
           wechat: profile.profile?.wechat_id || "",
           location: profile.profile?.location_visible || 0,
           wechatVisible: profile.profile?.wechat_visible || 0,
-        }),
+        }); },
       )
       .catch(() => undefined);
   });
@@ -67,12 +70,17 @@ export default function EditProfile() {
   };
 
   const finishOnboarding = async () => {
+    if (required) { await Taro.navigateBack(); return; }
     if (onboarding) await redirectAfterLogin();
     else await Taro.navigateBack();
   };
 
   const save = async () => {
     if (saving) return;
+    if (!form.avatar || !form.nickname.trim() || !form.bike.trim() || (!hasPhone && !form.wechat.trim())) {
+      Taro.showToast({ title: "请完善头像、名称、联系方式和车型", icon: "none" });
+      return;
+    }
     setSaving(true);
     try {
       const profile = await userService.update({
@@ -104,11 +112,11 @@ export default function EditProfile() {
 
   return (
     <View className="edit-profile">
-      {onboarding ? (
+      {onboarding || required ? (
         <View className="edit-profile__intro">
           <Text className="edit-profile__intro-title">欢迎加入摩搭子助手</Text>
           <Text className="edit-profile__intro-copy">
-            点击下方头像和昵称输入框，可主动选择微信头像、昵称。微信号无法由小程序自动读取，请按需自愿填写。
+            完成头像、用户名称、微信号或手机号、车型后，即可发起同行、报名同行和公开路线。微信号无法由小程序自动读取，请主动填写。
           </Text>
         </View>
       ) : null}
@@ -132,7 +140,7 @@ export default function EditProfile() {
           />
         </View>
         <View className="edit-profile__field">
-          <Text className="edit-profile__label">微信号（自愿填写）</Text>
+          <Text className="edit-profile__label">微信号{hasPhone ? "（手机号已绑定，可选）" : "（必填）"}</Text>
           <Input
             className="edit-profile__input"
             value={form.wechat}
@@ -189,13 +197,8 @@ export default function EditProfile() {
         </Text>
       </View>
       <Button className="edit-profile__save" loading={saving} onClick={() => void save()}>
-        {onboarding ? "保存并进入小程序" : "保存"}
+        {onboarding || required ? "保存并继续" : "保存"}
       </Button>
-      {onboarding ? (
-        <Text className="edit-profile__skip" onClick={() => void finishOnboarding()}>
-          暂不完善，稍后在“我的”中填写
-        </Text>
-      ) : null}
     </View>
   );
 }

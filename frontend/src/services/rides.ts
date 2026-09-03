@@ -6,12 +6,15 @@ import type {
   RideListResponse,
   RideParticipantsResponse,
   RideSummary,
+  RideRelaunchTemplate,
+  ShareMetadata,
 } from "@/types/api";
 
 export interface RideListParams {
   page?: number;
   pageSize?: number;
   city_code?: string;
+  district_code?: string;
   ride_style?: number;
   latitude?: number;
   longitude?: number;
@@ -33,6 +36,12 @@ export const rideService = {
       url: `${API_BASE}/rides/${id}`,
       method: "GET",
     });
+  },
+  share(id: string) {
+    return request<ShareMetadata & { summary: Record<string, unknown> }>({ url: `${API_BASE}/rides/${id}/share`, method: "GET" });
+  },
+  relaunchTemplate(id: string) {
+    return request<RideRelaunchTemplate>({ url: `${API_BASE}/rides/${id}/relaunch-template`, method: "GET" });
   },
   create(payload: CreateRidePayload, idempotencyKey?: string) {
     return request<RideSummary>({
@@ -59,6 +68,12 @@ export const rideService = {
   cancel(id: string) {
     return request<{ success: true }>({
       url: `${API_BASE}/rides/${id}/cancel`,
+      method: "POST",
+    });
+  },
+  finish(id: string) {
+    return request<{ success: true }>({
+      url: `${API_BASE}/rides/${id}/finish`,
       method: "POST",
     });
   },

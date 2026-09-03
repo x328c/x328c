@@ -5,6 +5,7 @@ import { StatePanel } from "@/components";
 import { routeService } from "@/services/routes";
 import { userRouteService } from "@/services/user-routes";
 import type { RouteSummary, UserRoute } from "@/types/api";
+import { useRegionStore } from "@/stores/region-store";
 import "./index.scss";
 
 type SelectableRoute =
@@ -18,10 +19,11 @@ export default function RouteSelectPage() {
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
 
   useLoad(() => {
+    const region = useRegionStore.getState().selected;
     void Promise.all([
-      routeService.list({ limit: 50 }),
+      routeService.list({ limit: 50, city_code: region.city_code, district_code: region.district_code }),
       userRouteService.mine({ limit: 50 }),
-      userRouteService.publicList({ limit: 50 }),
+      userRouteService.publicList({ limit: 50, city_code: region.city_code, district_code: region.district_code }),
     ]).then(([officialResult, mineResult, publicResult]) => {
       setOfficial(officialResult.items);
       setMine(mineResult.items);
